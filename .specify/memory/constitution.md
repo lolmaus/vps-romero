@@ -1,15 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: template (unratified) → 1.0.0
-- Modified principles:
-  - Placeholder Principle 1 → I. Declarative Desired State
-  - Placeholder Principle 2 → II. Reproducibility and Idempotence
-  - Placeholder Principle 3 → III. Least Privilege and Minimal Exposure
-  - Placeholder Principle 4 → IV. Safe and Recoverable Change
-  - Placeholder Principle 5 → V. Verification Before Completion
-- Added sections:
-  - Engineering Constraints
-  - Development and Deployment Workflow
+- Version change: 1.0.1 → 1.1.0
+- Modified principles: none
+- Added governance requirements:
+  - Architecturally significant decisions must be recorded as ADRs.
+  - Plans must comply with applicable accepted ADRs and should reference them.
+- Added sections: none
 - Removed sections: none
 - Follow-up TODOs: none
 -->
@@ -98,6 +94,10 @@ These rules define completion through observed behavior rather than assumed succ
 - Feature work MUST follow a Spec Kit workflow proportionate to its size and risk.
 - Specifications MUST define required behavior and acceptance criteria.
 - Plans MUST define implementation architecture and technology choices.
+- Architecturally significant decisions that are durable, cross-cutting, difficult to reverse, or
+  expected to constrain future work MUST be recorded as Architecture Decision Records.
+- Plans MUST comply with applicable accepted ADRs and SHOULD reference the ADRs that materially
+  constrain their design.
 - Tasks MUST divide an approved plan into reviewable units of work.
 - Implementation MUST follow the current specification, plan, this constitution, and applicable
   repository agent guidance.
@@ -125,4 +125,4 @@ These rules define completion through observed behavior rather than assumed succ
   - MINOR for adding a principle or materially expanding governance.
   - PATCH for clarifications that do not change meaning.
 
-**Version**: 1.0.1 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26
+**Version**: 1.1.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26
