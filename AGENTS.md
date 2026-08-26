@@ -19,7 +19,7 @@ Feature requirements and implementation plans live under `specs/`.
 
 Use Ansible built-in modules instead of shell commands where practical.
 
-Do not make ad-hoc changes to the VPS while implementing repository changes.
+Do not make ad-hoc configuration changes to the VPS while implementing repository changes. Read-only inspection and diagnostics over SSH are allowed, but any intended persistent state change must be implemented through infrastructure-as-code.
 
 Do not deploy infrastructure unless explicitly asked to do so.
 

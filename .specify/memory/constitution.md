@@ -1,50 +1,128 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: template (unratified) → 1.0.0
+- Modified principles:
+  - Placeholder Principle 1 → I. Declarative Desired State
+  - Placeholder Principle 2 → II. Reproducibility and Idempotence
+  - Placeholder Principle 3 → III. Least Privilege and Minimal Exposure
+  - Placeholder Principle 4 → IV. Safe and Recoverable Change
+  - Placeholder Principle 5 → V. Verification Before Completion
+- Added sections:
+  - Engineering Constraints
+  - Development and Deployment Workflow
+- Removed sections: none
+- Follow-up TODOs: none
+-->
+
+# VPS Romero Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Declarative Desired State
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- Git MUST be the source of truth for infrastructure and service desired state.
+- Intended changes MUST be represented declaratively in the repository before they are applied to
+  a managed host.
+- Secrets, credentials, private keys, and mutable runtime data MUST remain outside Git and use an
+  appropriate secure mechanism.
+- Emergency manual changes MUST be reconciled afterward with the intended repository state.
+- Ad-hoc production changes MUST NOT become undocumented long-term state.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+These rules keep managed state reviewable and prevent production from drifting away from its
+recorded intent.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Reproducibility and Idempotence
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- Automation MUST repeatedly converge a compatible fresh host toward the declared desired state.
+- Reapplying an already-converged configuration MUST NOT cause unintended changes.
+- External software and dependencies SHOULD be pinned and verified with checksums where practical.
+- Mutable references such as `latest` MUST NOT silently change production software when a stable
+  version can reasonably be pinned.
+- Important state that cannot be reproduced from the repository MUST be identified, persisted
+  appropriately, and covered by backup or recovery planning.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+These rules make rebuilding and recovering a host predictable.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Least Privilege and Minimal Exposure
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- Services MUST use only the privileges reasonably required.
+- Long-running services SHOULD use dedicated unprivileged identities unless a documented technical
+  requirement prevents it.
+- Public inbound network access MUST be unavailable unless an explicitly supported use case requires it.
+- Only required public ports and interfaces MAY be exposed.
+- Administrative interfaces SHOULD remain private and use secure administrative channels.
+- Secrets MUST NOT enter Git or generated artifacts intended for version control.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+These rules reduce the impact of mistakes and compromise.
+
+### IV. Safe and Recoverable Change
+
+- A repository change and its production deployment MUST be separate actions.
+- Implementation work MUST NOT implicitly authorize production deployment.
+- Changes to recovery-critical facilities MUST preserve a viable administrative recovery path.
+  This includes authentication, privilege escalation, firewalling, networking, boot behavior,
+  storage, and remote access.
+- Destructive or difficult-to-reverse operations MUST be explicit and justified.
+- Infrastructure MUST favor changes that can be reviewed, tested, rolled back, or reconstructed.
+
+These rules protect access and recovery while changes are introduced.
+
+### V. Verification Before Completion
+
+- Infrastructure work MUST have objective verification appropriate to the change.
+- Static validation, linting, syntax checks, dry runs, check modes, idempotency checks, service
+  health checks, and post-deployment checks MUST be used where technically meaningful.
+- Installation or an active process alone MUST NOT count as proof that a feature works.
+- Feature specifications MUST define observable success criteria from the user or operator view.
+- Validation MUST emphasize boundaries that can cause outages, lockouts, data loss, unwanted public
+  exposure, or silent drift.
+
+These rules define completion through observed behavior rather than assumed success.
+
+## Engineering Constraints
+
+- The simplest architecture that satisfies the requirements SHOULD be preferred.
+- Additional infrastructure layers MUST solve a concrete requirement and MUST NOT be added only
+  because they are fashionable or commonly considered modern.
+- Native, well-supported operating-system facilities SHOULD be preferred when they are simpler and
+  sufficiently robust.
+- Mutable application state SHOULD be separate from declarative configuration where practical.
+- Long-running services SHOULD use the host's normal service management and logging facilities
+  unless a feature documents a justified alternative.
+- Observability MUST let an operator assess health and diagnose common failures remotely.
+- Specifications SHOULD describe outcomes and constraints without prematurely choosing technology.
+  Technology choices belong primarily in planning unless they are themselves requirements.
+
+## Development and Deployment Workflow
+
+- Feature work MUST follow a Spec Kit workflow proportionate to its size and risk.
+- Specifications MUST define required behavior and acceptance criteria.
+- Plans MUST define implementation architecture and technology choices.
+- Tasks MUST divide an approved plan into reviewable units of work.
+- Implementation MUST follow the current specification, plan, this constitution, and applicable
+  repository agent guidance.
+- Infrastructure changes SHOULD be implemented and validated in small, reviewable increments.
+- Before production deployment, relevant repository validation MUST pass and the intended change
+  MUST be reviewable.
+- After production deployment, observable acceptance criteria MUST be verified on the managed host.
+- Discoveries that invalidate requirements or architectural assumptions MUST update the relevant
+  specification or plan rather than remain hidden in implementation.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution governs project-wide engineering decisions and supersedes conflicting
+  feature-specific conventions.
+- `AGENTS.md` provides operational guidance but MUST NOT redefine or weaken these principles.
+- Feature specifications and plans MAY impose stricter requirements.
+- Exceptions to a constitutional MUST or MUST NOT require explicit documented justification.
+- Recurring exceptions SHOULD prompt an amendment instead of becoming customary workarounds.
+- Amendments MUST be deliberate, reviewed as project-level governance changes, and accompanied by
+  required updates to affected guidance, specifications, or implementation.
+- Reviews MUST check relevant work for constitutional compliance. Unjustified noncompliance MUST be
+  resolved before the work is considered complete.
+- Constitution versions MUST use semantic versioning:
+  - MAJOR for removing or incompatibly redefining a governing principle.
+  - MINOR for adding a principle or materially expanding governance.
+  - PATCH for clarifications that do not change meaning.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.1 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26
