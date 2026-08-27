@@ -4,9 +4,9 @@
 
 ## ansible-core and Python compatibility
 
-**Decision**: Pin the workstation toolchain to `ansible-core==2.21.3` and run it with Python 3.14.
+**Decision**: Use `ansible-core==2.21.3` on any supported control-node Python from 3.12 through 3.14. Require Python 3.14 only on the managed Ubuntu 26.04 host.
 
-**Rationale**: ansible-core 2.21 is the current generally available feature line as of 2026-08-27. Its published support matrix covers Python 3.12–3.14 on the control node and Python 3.9–3.14 on target nodes, so it directly supports the Ubuntu 26.04 target's Python 3.14 runtime. Version 2.21.3, released 2026-08-10, is the latest stable patch in that line. The 2.21 line receives general fixes until November 2026, security fixes until May 2027, and reaches end of life in November 2027.
+**Rationale**: ansible-core 2.21 is the current generally available feature line as of 2026-08-27. Its published support matrix covers Python 3.12–3.14 on the control node and Python 3.9–3.14 on target nodes, so requiring Python 3.14 on the workstation would add no feature benefit while excluding supported operator environments. The selected release directly supports the Ubuntu 26.04 target's required Python 3.14 runtime. Version 2.21.3, released 2026-08-10, is the latest stable patch in that line. The 2.21 line receives general fixes until November 2026, security fixes until May 2027, and reaches end of life in November 2027.
 
 **Alternatives considered**:
 
@@ -20,15 +20,17 @@
 - [ansible-core 2.21.3 release metadata](https://pypi.org/project/ansible-core/2.21.3/)
 - [ansible-core 2.21 changelog](https://github.com/ansible/ansible/blob/stable-2.21/changelogs/CHANGELOG-v2.21.rst)
 
-## Local lint toolchain
+## Reproducible local toolchain
 
-**Decision**: Pin `ansible-lint==26.8.0` alongside ansible-core 2.21.3 in the local Python 3.14 environment.
+**Decision**: Declare ansible-core 2.21.3 and ansible-lint 26.8.0 in `pyproject.toml`, set the control-Python compatibility range to 3.12–3.14, and commit the complete dependency resolution in `uv.lock`. Use `uv sync --locked` and `uv run --locked` so local setup and validation fail rather than silently rewriting a missing or stale lockfile.
 
-**Rationale**: Version 26.8.0 is the current stable ansible-lint release as of 2026-08-27. Its published metadata supports Python 3.14 and accepts maintained ansible-core versions. Exact top-level pins keep workstation validation reproducible while avoiding the additional machinery of a containerized execution environment for a single-host repository.
+**Rationale**: Version 26.8.0 is the current stable ansible-lint release as of 2026-08-27. Its published metadata accepts maintained ansible-core versions and supports the selected control-Python range. Exact direct requirements alone do not constrain transitive dependencies, while uv's cross-platform lockfile records the exact resolved package versions for applicable Python and platform markers and is intended to be committed. This provides a small, modern local workflow without a container build or separately maintained requirements export. The repository does not pin one workstation Python minor with `.python-version`; `requires-python = ">=3.12,<3.15"` preserves the full control-node range supported by ansible-core 2.21.
 
 **Alternatives considered**:
 
 - An unpinned latest ansible-lint: rejected because validation behavior could change without a repository change.
+- Exact top-level pins in `requirements.txt`: rejected because transitive dependencies could still change between workstation installations.
+- Hand-maintained fully pinned requirements: rejected because it duplicates resolver output and is harder to update safely across supported Python versions and platforms.
 - A containerized execution environment: rejected because it adds a build and distribution layer that this one-host baseline does not require.
 - ansible-lint as a remote or hosted-only check: rejected because the operator must be able to validate locally before deployment.
 
@@ -36,6 +38,8 @@
 
 - [ansible-lint 26.8.0 release](https://github.com/ansible/ansible-lint/releases/tag/v26.8.0)
 - [ansible-lint 26.8.0 package metadata](https://pypi.org/project/ansible-lint/26.8.0/)
+- [uv project structure and lockfile](https://docs.astral.sh/uv/concepts/projects/layout/)
+- [uv locked command behavior](https://docs.astral.sh/uv/reference/cli/)
 
 ## Ansible content boundaries
 

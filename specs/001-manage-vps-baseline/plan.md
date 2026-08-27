@@ -6,15 +6,15 @@
 
 ## Summary
 
-Manage the existing Ubuntu 26.04 LTS VPS with ansible-core 2.21.3 running from the operator's Python 3.14 workstation environment over the existing SSH transport. Provide thin connectivity and bootstrap playbooks over a YAML inventory, with a reusable `vps_baseline` role that validates the target, inventories Docker state through read-only built-in modules, blocks on unexpected or ambiguous state, simulates the exact APT removal transaction, and then removes only verified Docker-specific packages, services, repository configuration, configuration, and data. Preserve SSH and provider-owned facilities, prove outbound and inbound connectivity after application, and require an immediate zero-change second run.
+Manage the existing Ubuntu 26.04 LTS VPS with ansible-core 2.21.3 running from the operator workstation on a supported control-node Python (3.12–3.14) over the existing SSH transport. Resolve the complete local Python tooling graph from a committed uv lockfile. Provide thin connectivity and bootstrap playbooks over a YAML inventory, with a reusable `vps_baseline` role that validates the target, inventories Docker state through read-only built-in modules, blocks on unexpected or ambiguous state, simulates the exact APT removal transaction, and then removes only verified Docker-specific packages, services, repository configuration, configuration, and data. Preserve SSH and provider-owned facilities, prove outbound and inbound connectivity after application, and require an immediate zero-change second run.
 
 ## Technical Context
 
-**Language/Version**: YAML for Ansible content; Python 3.14 local runtime; `ansible-core==2.21.3`
+**Language/Version**: YAML for Ansible content; control-node Python 3.12–3.14; target Python 3.14; `ansible-core==2.21.3`
 
-**Primary Dependencies**: `ansible-core==2.21.3`, `ansible-lint==26.8.0`, OpenSSH client; target system Python 3.14 and pre-existing `python3-apt`; no external Ansible collections
+**Primary Dependencies**: `uv`, locked `ansible-core==2.21.3` and `ansible-lint==26.8.0`, OpenSSH client; target system Python 3.14 and pre-existing `python3-apt`; no external Ansible collections
 
-**Storage**: Version-controlled YAML, INI, and Markdown files only; no database, secrets, credentials, or target runtime data stored in the repository
+**Storage**: Version-controlled YAML, TOML, INI, and Markdown files only; no database, secrets, credentials, or target runtime data stored in the repository
 
 **Testing**: `ansible-playbook --syntax-check`, `ansible-lint`, read-only connectivity playbook, `--check --diff`, first explicitly authorized application, post-application SSH/DNS/outbound checks, and immediate second application with `changed=0`
 
@@ -37,12 +37,12 @@ Manage the existing Ubuntu 26.04 LTS VPS with ansible-core 2.21.3 running from t
 | Principle | Status | Plan Evidence |
 |-----------|--------|---------------|
 | Declarative Desired State | PASS | Inventory, tool versions, Docker absence, and any reviewed cleanup approvals are repository declarations; secrets and SSH material remain external. |
-| Reproducibility and Idempotence | PASS | Tool versions are pinned; modules declare absence; the validation contract requires an immediate second run with zero changes. |
+| Reproducibility and Idempotence | PASS | The complete Python tooling graph is committed in `uv.lock`; modules declare absence; the validation contract requires an immediate second run with zero changes. |
 | Least Privilege and Minimal Exposure | PASS | Existing root access is restricted to the two bootstrap-era playbooks; no global root transport, new listener, port, account, or service is introduced. |
 | Safe and Recoverable Change | PASS | All Docker discovery and APT simulation precede changes; ambiguous state blocks; SSH, networking, and cloud-init are explicitly untouched; deployment is separate. |
 | Verification Before Completion | PASS | Syntax, lint, connectivity, check mode, post-apply access/network verification, Docker absence, and idempotence are all required. |
 | Engineering Simplicity | PASS | One built-in-only role and two thin playbooks avoid external collections, agents, and provider integrations. |
-| ADR Compliance | PASS | No accepted ADRs exist. The user-mandated, cross-cutting Ansible architecture is ADR-worthy and will be recorded as a Proposed ADR after Phase 1 design. |
+| ADR Compliance | PASS | Accepted ADR-0001 records the user-mandated, cross-cutting Ansible architecture, and this plan conforms to it. |
 
 No constitutional violations require complexity exceptions.
 
@@ -55,7 +55,7 @@ No constitutional violations require complexity exceptions.
 | Least Privilege and Minimal Exposure | PASS | Root is play-scoped to connectivity/bootstrap and no future service transport is selected by this feature. |
 | Safe and Recoverable Change | PASS | The state machine prevents package, service, or data mutation until Docker state and APT impact are conclusively safe. |
 | Verification Before Completion | PASS | `quickstart.md` covers all acceptance signals without performing deployment as part of repository validation. |
-| ADR Compliance | PASS | Proposed ADR `docs/adr/0001-use-ansible-for-host-configuration.md` records the durable project-wide decision for user review. |
+| ADR Compliance | PASS | Accepted ADR `docs/adr/0001-use-ansible-for-host-configuration.md` records the durable project-wide decision. |
 
 The Phase 1 design introduces no gate failures.
 
@@ -71,7 +71,7 @@ specs/001-manage-vps-baseline/
 ├── quickstart.md
 ├── contracts/
 │   └── operator-interface.md
-└── tasks.md                       # Created later by $speckit-tasks
+└── tasks.md                       # Generated by $speckit-tasks
 ```
 
 ### Source Code (repository root)
@@ -80,7 +80,8 @@ specs/001-manage-vps-baseline/
 .ansible-lint
 .gitignore
 ansible.cfg
-requirements.txt
+pyproject.toml
+uv.lock
 inventory/
 ├── hosts.yml
 └── host_vars/
@@ -110,7 +111,8 @@ roles/
 
 ### Local toolchain
 
-- Add exact top-level pins for ansible-core 2.21.3 and ansible-lint 26.8.0 in `requirements.txt`.
+- Declare ansible-core 2.21.3 and ansible-lint 26.8.0 in `pyproject.toml` with `requires-python = ">=3.12,<3.15"`; do not add a `.python-version` that selects one workstation Python minor.
+- Generate and commit `uv.lock` so the complete Python tooling dependency graph is reproducible across its supported markers. Use `uv sync --locked` and `uv run --locked` in operator workflows so validation cannot silently update the lockfile.
 - Configure only repository-local inventory and role paths in `ansible.cfg`; retain SSH host-key checking and do not weaken SSH options.
 - Ignore `.venv/`, repository-local Ansible caches, and retry files without changing unrelated ignore rules.
 - Configure ansible-lint to lint both playbooks and roles, use fully qualified module names, and introduce no warning skips for planned content.
@@ -157,4 +159,4 @@ roles/
 
 ## ADR Review
 
-Using Ansible over SSH with reusable roles and thin playbooks is a durable, cross-cutting choice that constrains future infrastructure features. Phase 1 therefore produces Proposed ADR `docs/adr/0001-use-ansible-for-host-configuration.md`. It requires user review before becoming Accepted and before task generation treats it as binding project governance.
+Using Ansible from the operator workstation over SSH, storing non-secret desired state and inventory in Git, and limiting its boundary to configuration inside already-provisioned hosts is a durable, cross-cutting choice recorded in Accepted ADR `docs/adr/0001-use-ansible-for-host-configuration.md`. Role/playbook layout and module-selection conventions remain implementation-plan and repository-guidance concerns.

@@ -1,30 +1,28 @@
 # ADR-0001: Use Ansible for Host Configuration
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-27
 
 ## Context
 
-The repository needs a declarative, repeatable way to configure the existing `romero.lolma.us` VPS from an operator workstation over its existing SSH access. The configuration architecture must support independently developed future services, preserve a separation between repository changes and deployment, and avoid taking ownership of VPS lifecycle or provider-managed infrastructure.
+The repository needs a declarative, repeatable way to configure existing hosts from an operator workstation over existing SSH access. It must keep host configuration ownership distinct from provisioning and provider-managed infrastructure.
 
-This choice is durable and cross-cutting: it determines how future host and service features express desired state, compose changes, validate content, and connect to managed hosts.
+This choice is durable and cross-cutting: it establishes the configuration-management mechanism, transport, source of truth, credential boundary, and infrastructure ownership boundary for future host and service features.
 
 ## Decision
 
-Use a pinned, supported ansible-core toolchain running from the operator's local workstation over SSH for host configuration management.
+Use Ansible as the host configuration-management mechanism. Run it from the operator workstation over SSH.
 
-Organize Ansible content as reusable roles with thin playbook entry points. Prefer fully qualified `ansible.builtin` modules; use command execution only when no built-in module provides the required behavior and document each exception. Keep host inventory and non-secret desired-state variables in the repository while keeping credentials and private SSH configuration external.
+Keep non-secret desired state and inventory in Git. Keep credentials and private SSH configuration external to the repository.
 
-Do not use Ansible to provision or manage VPS lifecycle, DNS, provider networking, cloud-init, or provider resources unless a later accepted decision explicitly expands that boundary.
+Use Ansible to manage configuration inside already-provisioned hosts. Do not use it to provision or manage VPS lifecycle, DNS, provider networking, cloud-init, or provider resources.
 
 ## Consequences
 
-- Infrastructure and service desired state becomes reviewable, repeatable Ansible content in Git.
-- Future service features add independent roles and thin entry points instead of extending a monolithic bootstrap script.
-- The repository must pin and periodically review ansible-core and validation-tool versions.
-- Each supported target must provide a Python version compatible with the selected ansible-core release.
+- Non-secret infrastructure and service desired state and inventory become reviewable Ansible content in Git.
 - SSH remains the transport, so connection credentials, host-key trust, and recovery access remain operator/provider responsibilities.
-- Safe use of root or privilege escalation must be scoped by each feature; this decision does not make root the default for future services.
+- Credentials and private SSH configuration are not version-controlled by this repository.
+- Ansible changes begin at the operating-system configuration boundary of an already-provisioned host.
 - Provider lifecycle and networking remain outside the configuration-management boundary.
 
 ## Alternatives Considered

@@ -4,18 +4,18 @@ The repository exposes local commands and two Ansible playbook entry points. Com
 
 ## Toolchain Contract
 
-Create an isolated Python 3.14 environment and install the exact repository requirements:
+Use uv with any control-node Python from 3.12 through 3.14 to synchronize the exact dependency graph recorded in the committed lockfile:
 
 ```bash
-python3.14 -m venv .venv
-.venv/bin/python -m pip install --requirement requirements.txt
+uv sync --locked
 ```
 
-The installed versions must report ansible-core 2.21.3 and ansible-lint 26.8.0:
+The command must fail if `uv.lock` is missing or inconsistent with `pyproject.toml`, rather than updating it. The installed environment must use control-node Python 3.12–3.14 and report ansible-core 2.21.3 and ansible-lint 26.8.0:
 
 ```bash
-.venv/bin/ansible --version
-.venv/bin/ansible-lint --version
+uv run --locked python --version
+uv run --locked ansible --version
+uv run --locked ansible-lint --version
 ```
 
 ## Static Validation Contract
@@ -23,15 +23,15 @@ The installed versions must report ansible-core 2.21.3 and ansible-lint 26.8.0:
 These commands must exit zero and must not connect to the VPS:
 
 ```bash
-.venv/bin/ansible-playbook --syntax-check playbooks/connectivity.yml
-.venv/bin/ansible-playbook --syntax-check playbooks/bootstrap.yml
-.venv/bin/ansible-lint
+uv run --locked ansible-playbook --syntax-check playbooks/connectivity.yml
+uv run --locked ansible-playbook --syntax-check playbooks/bootstrap.yml
+uv run --locked ansible-lint
 ```
 
 ## Connectivity Contract
 
 ```bash
-.venv/bin/ansible-playbook playbooks/connectivity.yml --limit romero
+uv run --locked ansible-playbook playbooks/connectivity.yml --limit romero
 ```
 
 This command is read-only. It must:
@@ -45,7 +45,7 @@ This command is read-only. It must:
 ## Dry-Run Contract
 
 ```bash
-.venv/bin/ansible-playbook playbooks/bootstrap.yml --limit romero --check --diff
+uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --check --diff
 ```
 
 Read-only Docker API inventory and APT transaction simulation still execute and report unchanged. Mutating built-in modules predict their changes. The command stops nonzero if Docker state is unexpected or ambiguous, the exact approval manifest does not match discovery, or APT proposes removing anything outside the Docker-only request.
@@ -76,7 +76,7 @@ When inspection reports unexpected state, the operator reviews it and records on
 Deployment is a separate, explicitly authorized action:
 
 ```bash
-.venv/bin/ansible-playbook playbooks/bootstrap.yml --limit romero --diff
+uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --diff
 ```
 
 A successful apply must:

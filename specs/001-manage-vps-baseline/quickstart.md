@@ -4,7 +4,7 @@ This guide describes how to validate and, only when separately authorized, apply
 
 ## Prerequisites
 
-- A POSIX workstation with Python 3.14, OpenSSH, and network access to `romero.lolma.us`.
+- A POSIX workstation with uv, a Python version from 3.12 through 3.14, OpenSSH, and network access to `romero.lolma.us`.
 - Existing root SSH access whose host key has been verified by the operator.
 - The target is the existing Ubuntu 26.04 LTS VPS with `/usr/bin/python3` and `python3-apt` already available.
 - Review [the operator interface](contracts/operator-interface.md) and [the state model](data-model.md), especially the fail-closed Docker approval rules.
@@ -12,20 +12,20 @@ This guide describes how to validate and, only when separately authorized, apply
 ## 1. Prepare the Local Toolchain
 
 ```bash
-python3.14 -m venv .venv
-.venv/bin/python -m pip install --requirement requirements.txt
-.venv/bin/ansible --version
-.venv/bin/ansible-lint --version
+uv sync --locked
+uv run --locked python --version
+uv run --locked ansible --version
+uv run --locked ansible-lint --version
 ```
 
-Expected: ansible-core is 2.21.3, ansible-lint is 26.8.0, and the active configuration resolves to this repository's `ansible.cfg`.
+Expected: uv installs the exact dependency graph recorded in `uv.lock` without changing the lockfile; control-node Python is in the supported 3.12–3.14 range; ansible-core is 2.21.3; ansible-lint is 26.8.0; and the active configuration resolves to this repository's `ansible.cfg`.
 
 ## 2. Run Repository Validation
 
 ```bash
-.venv/bin/ansible-playbook --syntax-check playbooks/connectivity.yml
-.venv/bin/ansible-playbook --syntax-check playbooks/bootstrap.yml
-.venv/bin/ansible-lint
+uv run --locked ansible-playbook --syntax-check playbooks/connectivity.yml
+uv run --locked ansible-playbook --syntax-check playbooks/bootstrap.yml
+uv run --locked ansible-lint
 ```
 
 Expected: all three commands exit zero without contacting or changing the VPS.
@@ -33,7 +33,7 @@ Expected: all three commands exit zero without contacting or changing the VPS.
 ## 3. Verify Connectivity and Compatibility
 
 ```bash
-.venv/bin/ansible-playbook playbooks/connectivity.yml --limit romero
+uv run --locked ansible-playbook playbooks/connectivity.yml --limit romero
 ```
 
 Expected: workstation DNS, the existing root SSH transport, Ubuntu 26.04/Python 3.14 compatibility, administrative access, remote DNS, and outbound HTTPS checks all pass. The recap reports no changes.
@@ -43,7 +43,7 @@ Stop here if the command fails. Do not compensate with manual host configuration
 ## 4. Preview the Baseline
 
 ```bash
-.venv/bin/ansible-playbook playbooks/bootstrap.yml --limit romero --check --diff
+uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --check --diff
 ```
 
 Expected when Docker is safe to remove:
@@ -61,7 +61,7 @@ If the run stops on Docker state, inspect the normalized identifiers and paths. 
 Do not infer deployment approval from successful repository validation or check mode. When the operator explicitly authorizes application, run:
 
 ```bash
-.venv/bin/ansible-playbook playbooks/bootstrap.yml --limit romero --diff
+uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --diff
 ```
 
 Expected: the role passes all safety gates, removes the declared Docker environment, reconnects over SSH, and verifies workstation DNS plus target outbound DNS/HTTPS connectivity.
@@ -81,7 +81,7 @@ Confirm from the play recap and verification tasks that:
 Immediately run the same apply command again:
 
 ```bash
-.venv/bin/ansible-playbook playbooks/bootstrap.yml --limit romero --diff
+uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --diff
 ```
 
 Expected: exit zero and `changed=0` for `romero`. Any change or safety failure means convergence has not been demonstrated and must be resolved in repository code before completion.
