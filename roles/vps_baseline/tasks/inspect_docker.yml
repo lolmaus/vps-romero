@@ -172,8 +172,8 @@
       - /etc/apt
     patterns:
       - sources.list
-      - '*.list'
-      - '*.sources'
+      - "*.list"
+      - "*.sources"
     file_type: file
     recurse: true
   register: vps_baseline_docker_all_apt_source_files
@@ -270,7 +270,7 @@
     paths:
       - "{{ vps_baseline_docker_apt_cache_path }}"
     patterns:
-      - '*download.docker.com*'
+      - "*download.docker.com*"
     file_type: file
     recurse: false
   register: vps_baseline_docker_apt_cache_files
@@ -911,8 +911,12 @@
 - name: Normalize the simulated APT removal set
   ansible.builtin.set_fact:
     vps_baseline_docker_simulated_removals: >-
-      {{ (vps_baseline_docker_apt_simulation.stdout | default(''))
-         | regex_findall('(?m)^Remv\\s+(\\S+)') | unique | sort }}
+      {{ vps_baseline_docker_apt_simulation.stdout_lines
+         | select('match', '^(Purg|Remv) ')
+         | map('split')
+         | map(attribute=1)
+         | unique
+         | sort }}
 
 - name: Require an exact Docker-only APT removal transaction
   ansible.builtin.assert:
