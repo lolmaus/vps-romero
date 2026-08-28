@@ -85,38 +85,14 @@ vps_baseline_docker_containerd_data_path: /var/lib/containerd
 vps_baseline_docker_containerd_cli_path: /usr/bin/ctr
 vps_baseline_docker_containerd_socket_path: /run/containerd/containerd.sock
 
-vps_baseline_docker_containerd_state_queries:
-  - name: containers
-    argv:
-      - containers
-      - list
-  - name: images
-    argv:
-      - images
-      - list
+vps_baseline_docker_containerd_active_use_queries:
   - name: tasks
     argv:
       - tasks
-      - list
-  - name: snapshots
-    argv:
-      - snapshots
-      - list
-  - name: leases
-    argv:
-      - leases
-      - list
-  - name: content
-    argv:
-      - content
       - list
   - name: active_content
     argv:
       - content
       - active
-  - name: sandboxes
-    argv:
-      - sandboxes
-      - list
 
 vps_baseline_docker_apt_cache_path: /var/lib/apt/lists

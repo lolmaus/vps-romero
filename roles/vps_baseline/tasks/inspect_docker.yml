@@ -38,9 +38,8 @@
     vps_baseline_docker_containerd_info_schema_errors: []
     vps_baseline_docker_containerd_namespaces: []
     vps_baseline_docker_containerd_query_errors: []
-    vps_baseline_docker_containerd_state_records: []
-    vps_baseline_docker_containerd_active_transfers: []
-    vps_baseline_docker_containerd_exclusive: false
+    vps_baseline_docker_containerd_active_use_records: []
+    vps_baseline_docker_containerd_no_unrelated_use_detected: false
 
 - name: Record present Docker-specific system services
   ansible.builtin.set_fact:
@@ -747,7 +746,7 @@
          | map('trim') | reject('equalto', '') | unique | sort }}
   when: vps_baseline_docker_bundled_runtime_installed
 
-- name: Inspect every relevant state category in every containerd namespace
+- name: Inspect active tasks and transfers in every containerd namespace
   ansible.builtin.command:
     argv: >-
       {{ [vps_baseline_docker_containerd_cli_path,
@@ -755,22 +754,22 @@
           '--namespace', item.0] + item.1.argv }}
   loop: >-
     {{ vps_baseline_docker_containerd_namespaces
-       | product(vps_baseline_docker_containerd_state_queries) | list }}
+       | product(vps_baseline_docker_containerd_active_use_queries) | list }}
   loop_control:
     label: "{{ item.0 }}:{{ item.1.name }}"
-  register: vps_baseline_docker_containerd_state_queries_result
+  register: vps_baseline_docker_containerd_active_use_queries_result
   when: vps_baseline_docker_bundled_runtime_installed
   check_mode: false
   changed_when: false
   failed_when: false
 
-- name: Record inconclusive containerd state queries
+- name: Record inconclusive containerd active-use queries
   ansible.builtin.set_fact:
     vps_baseline_docker_containerd_query_errors: >-
       {{ vps_baseline_docker_containerd_query_errors
          + [item.item.0 ~ ':' ~ item.item.1.name ~ ':rc='
             ~ (item.rc | default('unavailable') | string)] }}
-  loop: "{{ vps_baseline_docker_containerd_state_queries_result.results }}"
+  loop: "{{ vps_baseline_docker_containerd_active_use_queries_result.results }}"
   loop_control:
     label: "{{ item.item.0 }}:{{ item.item.1.name }}"
   when:
@@ -780,16 +779,16 @@
       or item.stdout_lines | default([]) | length < 1
       or item.stderr | default('') | trim | length > 0
 
-- name: Normalize existing containerd state records
+- name: Normalize detected active containerd use
   ansible.builtin.set_fact:
-    vps_baseline_docker_containerd_state_records: >-
-      {{ (vps_baseline_docker_containerd_state_records
+    vps_baseline_docker_containerd_active_use_records: >-
+      {{ (vps_baseline_docker_containerd_active_use_records
           + ((item.stdout_lines | default([]))[1:]
              | map('trim') | reject('equalto', '')
              | map('regex_replace', '^(.*)$',
                    item.item.0 ~ ':' ~ item.item.1.name ~ ':\\1') | list))
          | unique | sort }}
-  loop: "{{ vps_baseline_docker_containerd_state_queries_result.results }}"
+  loop: "{{ vps_baseline_docker_containerd_active_use_queries_result.results }}"
   loop_control:
     label: "{{ item.item.0 }}:{{ item.item.1.name }}"
   when:
@@ -797,14 +796,7 @@
     - item.rc | default(1) == 0
     - item.stdout_lines | default([]) | length >= 1
 
-- name: Record active containerd content transfers
-  ansible.builtin.set_fact:
-    vps_baseline_docker_containerd_active_transfers: >-
-      {{ vps_baseline_docker_containerd_state_records
-         | select('search', ':active_content:') | list }}
-  when: vps_baseline_docker_bundled_runtime_installed
-
-- name: Prove exclusive Docker ownership of containerd
+- name: Require no detected unrelated containerd use
   ansible.builtin.assert:
     that:
       - vps_baseline_docker_containerd_query_errors | length == 0
@@ -812,21 +804,30 @@
         vps_baseline_docker_containerd_namespaces
         | difference(vps_baseline_docker_reported_containerd_namespaces)
         | length == 0
-      - vps_baseline_docker_containerd_active_transfers | length == 0
+      - vps_baseline_docker_containerd_active_use_records | length == 0
     fail_msg: >-
-      blocked-for-review: exclusive Docker ownership of containerd could not be
-      proved. Existing namespaces={{ vps_baseline_docker_containerd_namespaces }},
+      blocked-for-review: containerd inspection detected unrelated or active
+      use, or could not safely exclude it. Existing namespaces=
+      {{ vps_baseline_docker_containerd_namespaces }},
       Docker-reported namespaces=
       {{ vps_baseline_docker_reported_containerd_namespaces }}, query errors=
-      {{ vps_baseline_docker_containerd_query_errors }}, active transfers=
-      {{ vps_baseline_docker_containerd_active_transfers }}. No cleanup will run.
+      {{ vps_baseline_docker_containerd_query_errors }}, active use=
+      {{ vps_baseline_docker_containerd_active_use_records }}. No cleanup will run.
   when: vps_baseline_docker_bundled_runtime_installed
   changed_when: false
 
-- name: Record exclusive Docker ownership of containerd
+- name: Record no detected unrelated containerd use
   ansible.builtin.set_fact:
-    vps_baseline_docker_containerd_exclusive: true
+    vps_baseline_docker_containerd_no_unrelated_use_detected: true
   when: vps_baseline_docker_bundled_runtime_installed
+
+- name: Inspect the bundled containerd data path for explicit review
+  ansible.builtin.stat:
+    path: "{{ vps_baseline_docker_containerd_data_path }}"
+    follow: false
+  register: vps_baseline_docker_containerd_data_stat
+  when: vps_baseline_docker_bundled_runtime_installed
+  changed_when: false
 
 - name: Build the exact set of Docker paths requiring approval
   ansible.builtin.set_fact:
@@ -835,7 +836,9 @@
           + vps_baseline_docker_data_paths_found
           + vps_baseline_docker_rootless_paths_found
           + ([vps_baseline_docker_containerd_data_path]
-             if vps_baseline_docker_containerd_state_records | length > 0
+             if (vps_baseline_docker_bundled_runtime_installed
+                 and vps_baseline_docker_containerd_no_unrelated_use_detected
+                 and vps_baseline_docker_containerd_data_stat.stat.exists)
              else [])) | unique | sort }}
 
 - name: Require exact approval of all unexpected Docker state
@@ -879,7 +882,8 @@
       paths={{ vps_baseline_docker_paths_requiring_approval }},
       group_members={{ vps_baseline_docker_group_members }},
       containerd_namespaces={{ vps_baseline_docker_containerd_namespaces }},
-      containerd_state={{ vps_baseline_docker_containerd_state_records }}.
+      containerd_active_use=
+      {{ vps_baseline_docker_containerd_active_use_records }}.
       Record only reviewed exact identifiers and paths; no cleanup has run.
   changed_when: false
 
@@ -889,7 +893,8 @@
       {{ (vps_baseline_docker_installed_packages
           + ([vps_baseline_docker_bundled_runtime_package]
              if (vps_baseline_docker_bundled_runtime_installed
-                 and vps_baseline_docker_containerd_exclusive) else []))
+                 and vps_baseline_docker_containerd_no_unrelated_use_detected)
+             else []))
          | unique | sort }}
 
 - name: Simulate the exact Docker package purge transaction

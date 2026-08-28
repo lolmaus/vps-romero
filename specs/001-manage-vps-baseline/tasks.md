@@ -68,7 +68,7 @@ description: "Implementation tasks for the managed VPS baseline"
 
 ## Phase 4: User Story 2 - Remove Unwanted Provider Software (Priority: P2)
 
-**Goal**: Discover all Docker state, require exact review for unexpected artifacts, prove the APT transaction is Docker-only, and remove only verified Docker-owned state.
+**Goal**: Discover all Docker state, require exact review for unexpected or sensitive artifacts, prove the APT transaction is Docker-only, and remove only reviewed Docker-related state.
 
 **Independent Test**: Run `playbooks/bootstrap.yml --check --diff` against the provider Docker installation. A safe installation predicts only the declared Docker cleanup; any container, image, volume, build cache, custom network, swarm object, plugin, ambiguous path, group member, unavailable inspection, mixed APT source, or unrelated APT removal stops before mutation.
 
@@ -80,7 +80,7 @@ description: "Implementation tasks for the managed VPS baseline"
 - [X] T020 [US2] Build the installed Docker-only purge set, protect distribution `containerd`, `runc`, and `podman-docker`, and compare it with one read-only `apt-get --simulate purge` command using `argv`, `changed_when: false`, and check-mode execution in `roles/vps_baseline/tasks/inspect_docker.yml`
 - [X] T021 [US2] Stop and disable only approved Docker-specific services and purge only the simulated exact package set with `autoremove: false` and APT dependency auto-installation disabled in `roles/vps_baseline/tasks/remove_docker.yml`
 - [X] T022 [US2] Remove only verified dedicated Docker APT sources, unreferenced Docker signing keys, and Docker-specific APT cache files while blocking mixed or noncanonical sources in `roles/vps_baseline/tasks/remove_docker.yml`
-- [X] T023 [US2] Remove approved Docker configuration, systemd override, runtime, rootless, and data paths while removing `containerd.io` and `/var/lib/containerd` only after exclusive ownership is proved in `roles/vps_baseline/tasks/remove_docker.yml`
+- [X] T023 [US2] Remove approved Docker configuration, systemd override, runtime, rootless, and data paths while selecting `containerd.io` only after no unrelated current use is detected and removing an existing `/var/lib/containerd` only through the exact operator-approved path loop in `roles/vps_baseline/tasks/remove_docker.yml`
 - [X] T024 [US2] Insert Docker inspection and gated removal between preflight and verification in `roles/vps_baseline/tasks/main.yml`
 - [X] T025 [US2] Regather facts and assert Docker-specific packages, services, sources, keys, configuration, runtime paths, and data are absent after a normal apply while preserving the existing access/network checks in `roles/vps_baseline/tasks/verify.yml`
 - [X] T026 [US2] Run locked syntax and lint validation plus the read-only check-mode contract for `playbooks/bootstrap.yml` and `roles/vps_baseline/`, and confirm its diff contains no SSH, user, firewall, network, netplan, cloud-init, DNS, or provider-resource changes
@@ -227,7 +227,7 @@ Task T010: Create roles/vps_baseline/vars/main.yml
 
 - `[P]` tasks change different files and have no dependency on unfinished work.
 - `[US1]`, `[US2]`, and `[US3]` map directly to the three prioritized user stories in `spec.md`.
-- Prefer fully qualified `ansible.builtin` modules; command exceptions are limited to the read-only APT purge simulation and fixed-argument read-only `ctr` inventory needed to prove exclusive containerd ownership.
+- Prefer fully qualified `ansible.builtin` modules; command exceptions are limited to the read-only APT purge simulation and fixed-argument read-only `ctr` inventory needed to detect unrelated current containerd use.
 - Do not install external Ansible collections or add Docker SDK dependencies.
 - Do not log or commit file contents that may contain registry credentials.
 - Commit after each task or logical group, but never treat a repository commit as deployment authorization.

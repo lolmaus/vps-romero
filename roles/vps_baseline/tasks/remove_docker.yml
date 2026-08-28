@@ -59,22 +59,6 @@
     {{ (vps_baseline_docker_runtime_paths_found
         + vps_baseline_docker_socket_paths) | unique | sort(reverse=true) }}
 
-- name: Inspect Docker bundled-runtime data path
-  ansible.builtin.stat:
-    path: "{{ vps_baseline_docker_containerd_data_path }}"
-    follow: false
-  register: vps_baseline_docker_containerd_data_stat
-  changed_when: false
-
-- name: Remove exclusively owned Docker bundled-runtime data
-  ansible.builtin.file:
-    path: "{{ vps_baseline_docker_containerd_data_path }}"
-    state: absent
-  when:
-    - vps_baseline_docker_bundled_runtime_package in vps_baseline_docker_purge_packages
-    - vps_baseline_docker_containerd_exclusive
-    - vps_baseline_docker_containerd_data_stat.stat.exists
-
 - name: Remove the reviewed Docker group
   ansible.builtin.group:
     name: docker

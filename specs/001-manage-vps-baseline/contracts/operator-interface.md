@@ -59,9 +59,11 @@ The workflow first reads each daemon's `/version` response, proves support for
 Engine API v1.52, and then uses explicitly versioned endpoints. Its verbose
 build-cache response must contain an unambiguous v1.52 `BuildCacheUsage`
 object. When `containerd.io` is installed, fixed-argument read-only `ctr`
-inventory must prove that every namespace belongs to Docker and that no active
-content transfer exists before the package or `/var/lib/containerd` can be
-selected for removal.
+inventory must find no namespace outside those reported by Docker and no
+active task or content transfer before the package can be selected. This is
+evidence that no unrelated current use was detected, not proof of exclusive
+ownership. If `/var/lib/containerd` exists and removal is intended, its exact
+path must also match the operator approval manifest.
 
 Check mode does not prove that post-removal absence checks pass because predicted changes are not applied.
 

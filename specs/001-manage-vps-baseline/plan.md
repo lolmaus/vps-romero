@@ -136,16 +136,16 @@ roles/
 ### Package and service safety
 
 - Build the removal request from the intersection of installed packages and an explicit Docker-only allowlist. Never pass wildcards.
-- Classify distribution `containerd`, `runc`, and `podman-docker` as shared-risk and leave them untouched. Include Docker's bundled `containerd.io` only after fixed-argument, read-only `ctr` commands successfully enumerate every containerd namespace and relevant state category, every namespace is one reported by Docker, no active transfer exists, and the APT simulation finds no unrelated dependent package. Failure to inspect does not start containerd and blocks cleanup.
+- Classify distribution `containerd`, `runc`, and `podman-docker` as shared-risk and leave them untouched. Include Docker's bundled `containerd.io` only after fixed-argument, read-only `ctr` commands successfully enumerate namespaces, active tasks, and active content transfers; no namespace outside those reported by Docker or active use is found; and the APT simulation finds no unrelated dependent package. This establishes that no unrelated current use was detected, not exclusive ownership. Failure to inspect does not start containerd and blocks cleanup.
 - Run `apt-get --simulate purge` through one read-only `ansible.builtin.command` task using `argv`; parse the proposed `Remv` set and assert it contains no package outside the approved Docker removal set.
-- Stop and disable only present Docker-specific services after all gates pass. Stop `containerd` only when its selected package and data have been proved Docker-owned.
+- Stop and disable only present Docker-specific services after all gates pass. Stop `containerd` only when its package is selected after the no-detected-unrelated-use checks and applicable exact path review.
 - Purge the exact package list with `ansible.builtin.apt`, `autoremove: false`, and module dependency auto-installation disabled.
 
 ### Repository, configuration, and data cleanup
 
 - Remove canonical dedicated Docker APT source files only after verifying that they contain no unrelated stanza. A Docker URI in a mixed/noncanonical source blocks for review rather than causing whole-file deletion.
 - Remove a Docker key only after no remaining source refers to it; remove Docker-specific cached APT list files without refreshing or upgrading unrelated packages.
-- Remove `/etc/docker`, Docker-only systemd overrides/default files, `/var/lib/docker`, and Docker runtime paths after approval. Remove `/var/lib/containerd` only when the containerd namespace/state inventory and APT transaction together prove `containerd.io` is exclusively Docker-owned; nonempty Docker-owned residual containerd state also requires exact path review.
+- Remove `/etc/docker`, Docker-only systemd overrides/default files, `/var/lib/docker`, and Docker runtime paths after approval. Whenever `/var/lib/containerd` exists and removal is intended, include it in the same exact operator path-approval equality gate. Remove it only through the reviewed-path loop after containerd inspection finds no unrelated current use and the APT transaction is Docker-only; no separate automatic removal is permitted.
 - Inspect Docker group membership and rootless/per-user paths. Nonempty membership or user-owned paths block for exact review; content and credentials are never logged.
 - Do not call firewall, netplan, network, cloud-init, user, authorized-key, or sshd management modules. Docker runtime networking may disappear when Docker stops, but the role declares no provider/network configuration.
 

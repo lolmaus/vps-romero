@@ -57,7 +57,7 @@ Non-secret host-scoped desired-state input used only after a run stops for opera
 | `build_cache` | set of exact IDs/records | empty | Must exactly equal discovered build cache |
 | `swarm_objects` | set of exact IDs/names | empty | Must exactly equal discovered swarm-related state |
 | `plugins` | set of exact identifiers | empty | Must exactly equal discovered non-built-in plugins |
-| `paths` | set of exact absolute paths | empty | Must exactly equal reviewed ambiguous configuration/data paths |
+| `paths` | set of exact absolute paths | empty | Must exactly equal reviewed configuration/data paths selected for removal, including an existing `/var/lib/containerd` whenever its removal is intended |
 | `group_members` | set of exact user names | empty | Must exactly equal reviewed Docker group membership |
 
 An empty discovered set needs no approval. A nonempty discovered set must match the corresponding approval set exactly. A blanket boolean approval is invalid. Approval authorizes the repository-declared cleanup on a later run; it does not authorize manual host mutation.
@@ -72,7 +72,7 @@ Ephemeral comparison between requested and simulated package changes.
 | `requested_purge` | set of package names | Exact Docker packages requested absent |
 | `simulated_removals` | set of package names | Parsed from the read-only APT simulation |
 | `unexpected_removals` | set difference | `simulated_removals - requested_purge`; must be empty |
-| `shared_runtime_state` | classification | Must prove no unrelated consumer before `containerd.io` or its data is selected |
+| `shared_runtime_state` | classification | Must detect no unrelated current use before `containerd.io` is selected; an existing `/var/lib/containerd` also requires exact path approval before removal |
 
 Package wildcards and automatic dependency removal are invalid inputs.
 

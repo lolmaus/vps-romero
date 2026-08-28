@@ -51,8 +51,8 @@ Expected when Docker is safe to remove:
 - read-only Docker discovery completes for every discovered rootful or
   rootless daemon socket without starting a stopped daemon;
 - every daemon supports the selected Engine API v1.52 schema, verbose build
-  cache is unambiguous, and the existing containerd namespaces/state can be
-  inspected without starting a stopped daemon;
+  cache is unambiguous, and existing containerd namespaces, active tasks, and
+  active transfers can be inspected without starting a stopped daemon;
 - no containers, images, volumes, build cache, custom networks, or other unexpected state is found, or current discovery exactly matches a reviewed approval manifest;
 - APT simulation proposes only the explicit Docker package set;
 - package, source, configuration, and data removal is predicted;
@@ -67,9 +67,12 @@ check mode. Never use wildcard or blanket approval. A later discovery must
 still match the manifest exactly.
 
 An unsupported or ambiguous Engine API response, an unavailable containerd
-daemon, a containerd namespace not reported by Docker, or an active containerd
-transfer is not approvable through the manifest. Correct the implementation or
-resolve the external ambiguity before cleanup; do not bypass these safety gates.
+daemon, a containerd namespace not reported by Docker, a failed active-use
+query, or an active containerd task or transfer is not approvable through the
+manifest. Correct the implementation or resolve the external ambiguity before
+cleanup; do not bypass these safety gates. An existing `/var/lib/containerd`
+always requires its exact path in the reviewed manifest when removal is
+intended, even when inspection detects no active or unrelated use.
 
 ## 5. Apply Only with Separate Authorization
 
