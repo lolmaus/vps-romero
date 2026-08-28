@@ -1,0 +1,122 @@
+---
+vps_baseline_docker_package_allowlist:
+  - docker-buildx
+  - docker-buildx-plugin
+  - docker-ce
+  - docker-ce-cli
+  - docker-ce-rootless-extras
+  - docker-compose
+  - docker-compose-plugin
+  - docker-compose-v2
+  - docker.io
+  - docker-model-plugin
+  - docker-scan-plugin
+
+vps_baseline_docker_bundled_runtime_package: containerd.io
+
+vps_baseline_docker_shared_runtime_packages:
+  - containerd
+  - podman-docker
+  - runc
+
+vps_baseline_docker_system_services:
+  - docker.service
+  - docker.socket
+
+vps_baseline_docker_bundled_runtime_services:
+  - containerd.service
+
+vps_baseline_docker_builtin_networks:
+  - bridge
+  - host
+  - none
+
+vps_baseline_docker_engine_api_version: '1.52'
+
+vps_baseline_docker_engine_api_endpoints:
+  containers: /containers/json?all=true
+  images: /images/json?all=true
+  volumes: /volumes
+  networks: /networks
+  system_df: /system/df?type=build-cache&verbose=1
+  info: /info
+  services: /services
+  configs: /configs
+  secrets: /secrets
+  plugins: /plugins
+
+vps_baseline_docker_system_socket_candidates:
+  - /run/docker.sock
+  - /var/run/docker.sock
+
+vps_baseline_docker_rootless_relative_paths:
+  - .config/docker
+  - .docker
+  - .local/share/docker
+
+vps_baseline_docker_rootless_socket_relative_paths:
+  - .docker/run/docker.sock
+
+vps_baseline_docker_source_candidates:
+  - /etc/apt/sources.list.d/docker.list
+  - /etc/apt/sources.list.d/docker.sources
+
+vps_baseline_docker_key_candidates:
+  - /etc/apt/keyrings/docker.asc
+  - /etc/apt/keyrings/docker.gpg
+  - /usr/share/keyrings/docker-archive-keyring.gpg
+
+vps_baseline_docker_configuration_paths:
+  - /etc/default/docker
+  - /etc/docker
+  - /etc/systemd/system/docker.service.d
+  - /etc/systemd/system/docker.socket.d
+
+vps_baseline_docker_data_paths:
+  - /var/lib/docker
+
+vps_baseline_docker_runtime_paths:
+  - /run/docker
+  - /run/docker.sock
+  - /var/run/docker
+  - /var/run/docker.sock
+
+vps_baseline_docker_containerd_data_path: /var/lib/containerd
+vps_baseline_docker_containerd_cli_path: /usr/bin/ctr
+vps_baseline_docker_containerd_socket_path: /run/containerd/containerd.sock
+
+vps_baseline_docker_containerd_state_queries:
+  - name: containers
+    argv:
+      - containers
+      - list
+  - name: images
+    argv:
+      - images
+      - list
+  - name: tasks
+    argv:
+      - tasks
+      - list
+  - name: snapshots
+    argv:
+      - snapshots
+      - list
+  - name: leases
+    argv:
+      - leases
+      - list
+  - name: content
+    argv:
+      - content
+      - list
+  - name: active_content
+    argv:
+      - content
+      - active
+  - name: sandboxes
+    argv:
+      - sandboxes
+      - list
+
+vps_baseline_docker_apt_cache_path: /var/lib/apt/lists

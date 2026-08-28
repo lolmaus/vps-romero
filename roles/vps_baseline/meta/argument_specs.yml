@@ -1,0 +1,45 @@
+---
+argument_specs:
+  main:
+    short_description: Manage the minimal VPS baseline
+    options:
+      vps_baseline_docker_approved_state:
+        description: Exact Docker state reviewed and approved for removal
+        type: dict
+        options:
+          containers:
+            type: list
+            elements: str
+            default: []
+          images:
+            type: list
+            elements: str
+            default: []
+          volumes:
+            type: list
+            elements: str
+            default: []
+          custom_networks:
+            type: list
+            elements: str
+            default: []
+          build_cache:
+            type: list
+            elements: str
+            default: []
+          swarm_objects:
+            type: list
+            elements: str
+            default: []
+          plugins:
+            type: list
+            elements: str
+            default: []
+          paths:
+            type: list
+            elements: str
+            default: []
+          group_members:
+            type: list
+            elements: str
+            default: []

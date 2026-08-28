@@ -48,13 +48,28 @@ uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --check 
 
 Expected when Docker is safe to remove:
 
-- read-only Docker discovery completes;
+- read-only Docker discovery completes for every discovered rootful or
+  rootless daemon socket without starting a stopped daemon;
+- every daemon supports the selected Engine API v1.52 schema, verbose build
+  cache is unambiguous, and the existing containerd namespaces/state can be
+  inspected without starting a stopped daemon;
 - no containers, images, volumes, build cache, custom networks, or other unexpected state is found, or current discovery exactly matches a reviewed approval manifest;
 - APT simulation proposes only the explicit Docker package set;
 - package, source, configuration, and data removal is predicted;
 - no SSH, networking, netplan, cloud-init, user, or provider state is predicted to change.
 
-If the run stops on Docker state, inspect the normalized identifiers and paths. After deciding that specific artifacts may be removed, record those exact values in `inventory/host_vars/romero.yml`, review the repository change, and repeat check mode. Never use wildcard or blanket approval.
+If the run stops on Docker state, treat `blocked-for-review` as an expected,
+non-mutating safety outcome. Inspect the normalized identifiers and paths,
+including configuration, data, rootless paths, and Docker group members. After
+deciding that specific artifacts may be removed, record those exact values in
+`inventory/host_vars/romero.yml`, review the repository change, and repeat
+check mode. Never use wildcard or blanket approval. A later discovery must
+still match the manifest exactly.
+
+An unsupported or ambiguous Engine API response, an unavailable containerd
+daemon, a containerd namespace not reported by Docker, or an active containerd
+transfer is not approvable through the manifest. Correct the implementation or
+resolve the external ambiguity before cleanup; do not bypass these safety gates.
 
 ## 5. Apply Only with Separate Authorization
 
@@ -65,6 +80,10 @@ uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --diff
 ```
 
 Expected: the role passes all safety gates, removes the declared Docker environment, reconnects over SSH, and verifies workstation DNS plus target outbound DNS/HTTPS connectivity.
+
+This normal application is an operator-only production acceptance action, not
+part of repository implementation. Do not run it from `$speckit-implement` or
+another implementation run without fresh explicit deployment authorization.
 
 ## 6. Verify Observable Outcomes
 
@@ -85,3 +104,8 @@ uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --diff
 ```
 
 Expected: exit zero and `changed=0` for `romero`. Any change or safety failure means convergence has not been demonstrated and must be resolved in repository code before completion.
+
+If this second application reports a change, stop production acceptance. Rerun
+the applicable repository validation and final review after correcting the
+implementation, then obtain fresh explicit deployment authorization before
+starting another first/second application sequence.

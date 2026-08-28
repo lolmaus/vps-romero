@@ -1,1 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+*.egg-info/
+
+# Ansible
+.ansible/
+*.retry
+
+# Editor and operating-system files
 .history/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+.idea/
+.vscode/

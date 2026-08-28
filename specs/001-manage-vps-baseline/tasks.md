@@ -23,11 +23,11 @@ description: "Implementation tasks for the managed VPS baseline"
 
 **Purpose**: Establish the reproducible local Ansible toolchain and repository configuration.
 
-- [ ] T001 Create `pyproject.toml` with `requires-python = ">=3.12,<3.15"`, exact direct requirements for `ansible-core==2.21.3` and `ansible-lint==26.8.0`, and non-package uv project configuration
-- [ ] T002 Generate and commit the complete cross-platform Python dependency resolution in `uv.lock` from `pyproject.toml`
-- [ ] T003 [P] Add `.venv/`, Ansible caches, and retry files to `.gitignore` without replacing unrelated ignore rules
-- [ ] T004 [P] Configure repository-local inventory and role paths while preserving SSH host-key checking and avoiding global connection credentials or `remote_user` in `ansible.cfg`
-- [ ] T005 [P] Configure syntax and quality rules for `playbooks/` and `roles/` without warning skips in `.ansible-lint`
+- [X] T001 Create `pyproject.toml` with `requires-python = ">=3.12,<3.15"`, exact direct requirements for `ansible-core==2.21.3` and `ansible-lint==26.8.0`, and non-package uv project configuration
+- [X] T002 Generate and commit the complete cross-platform Python dependency resolution in `uv.lock` from `pyproject.toml`
+- [X] T003 [P] Add `.venv/`, Ansible caches, and retry files to `.gitignore` without replacing unrelated ignore rules
+- [X] T004 [P] Configure repository-local inventory and role paths while preserving SSH host-key checking and avoiding global connection credentials or `remote_user` in `ansible.cfg`
+- [X] T005 [P] Configure syntax and quality rules for `playbooks/` and `roles/` without warning skips in `.ansible-lint`
 
 ---
 
@@ -37,11 +37,11 @@ description: "Implementation tasks for the managed VPS baseline"
 
 **CRITICAL**: No user-story implementation begins until this phase is complete.
 
-- [ ] T006 Define the `romero` host, `romero.lolma.us`, and `/usr/bin/python3` using non-secret metadata only in `inventory/hosts.yml`
-- [ ] T007 [P] Create the host-scoped, non-secret Docker review-approval override location with no initial approvals or SSH material in `inventory/host_vars/romero.yml`
-- [ ] T008 [P] Define the empty exact-match Docker approval manifest and role defaults in `roles/vps_baseline/defaults/main.yml`
-- [ ] T009 [P] Validate every approval-manifest collection and reject blanket approval inputs in `roles/vps_baseline/meta/argument_specs.yml`
-- [ ] T010 [P] Define Docker-only package, service, built-in network, Engine API endpoint, source/key, configuration, runtime, and data-path policy allowlists in `roles/vps_baseline/vars/main.yml`
+- [X] T006 Define the `romero` host, `romero.lolma.us`, and `/usr/bin/python3` using non-secret metadata only in `inventory/hosts.yml`
+- [X] T007 [P] Create the host-scoped, non-secret Docker review-approval override location with no initial approvals or SSH material in `inventory/host_vars/romero.yml`
+- [X] T008 [P] Define the empty exact-match Docker approval manifest and role defaults in `roles/vps_baseline/defaults/main.yml`
+- [X] T009 [P] Validate every approval-manifest collection and reject blanket approval inputs in `roles/vps_baseline/meta/argument_specs.yml`
+- [X] T010 [P] Define Docker-only package, service, built-in network, Engine API endpoint, source/key, configuration, runtime, and data-path policy allowlists in `roles/vps_baseline/vars/main.yml`
 
 **Checkpoint**: The locked workstation toolchain, host identity, approval model, and immutable cleanup policy are ready.
 
@@ -55,12 +55,12 @@ description: "Implementation tasks for the managed VPS baseline"
 
 ### Implementation for User Story 1
 
-- [ ] T011 [P] [US1] Implement the read-only root-SSH connectivity entry point with workstation DNS, Ansible ping, Ubuntu 26.04, target Python 3.14, effective UID 0, target DNS, and outbound HTTPS checks in `playbooks/connectivity.yml`
-- [ ] T012 [P] [US1] Implement duplicated fail-fast OS, Python, privilege, `python3-apt`, package-fact, and service-fact prerequisites without auto-installing dependencies in `roles/vps_baseline/tasks/preflight.yml`
-- [ ] T013 [P] [US1] Implement connection reset, new SSH ping, workstation DNS, target DNS, and outbound HTTPS verification with read-only change reporting in `roles/vps_baseline/tasks/verify.yml`
-- [ ] T014 [US1] Create the ordered role dispatcher for preflight and verification in `roles/vps_baseline/tasks/main.yml`
-- [ ] T015 [US1] Implement the thin root-SSH role entry point without SSH, user, network, netplan, cloud-init, DNS, or provider management in `playbooks/bootstrap.yml`
-- [ ] T016 [US1] Run locked syntax checks for `playbooks/connectivity.yml` and `playbooks/bootstrap.yml`, then run the read-only connectivity contract from `specs/001-manage-vps-baseline/contracts/operator-interface.md` when operator SSH credentials are available
+- [X] T011 [P] [US1] Implement the read-only root-SSH connectivity entry point with workstation DNS, Ansible ping, Ubuntu 26.04, target Python 3.14, effective UID 0, target DNS, and outbound HTTPS checks in `playbooks/connectivity.yml`
+- [X] T012 [P] [US1] Implement duplicated fail-fast OS, Python, privilege, `python3-apt`, package-fact, and service-fact prerequisites without auto-installing dependencies in `roles/vps_baseline/tasks/preflight.yml`
+- [X] T013 [P] [US1] Implement connection reset, new SSH ping, workstation DNS, target DNS, and outbound HTTPS verification with read-only change reporting in `roles/vps_baseline/tasks/verify.yml`
+- [X] T014 [US1] Create the ordered role dispatcher for preflight and verification in `roles/vps_baseline/tasks/main.yml`
+- [X] T015 [US1] Implement the thin root-SSH role entry point without SSH, user, network, netplan, cloud-init, DNS, or provider management in `playbooks/bootstrap.yml`
+- [X] T016 [US1] Run locked syntax checks for `playbooks/connectivity.yml` and `playbooks/bootstrap.yml`, then run the read-only connectivity contract from `specs/001-manage-vps-baseline/contracts/operator-interface.md` when operator SSH credentials are available
 
 **Checkpoint**: The management transport and safety preflight are independently usable; no production application has been authorized by completing this phase.
 
@@ -74,16 +74,16 @@ description: "Implementation tasks for the managed VPS baseline"
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Discover installed Docker and shared-runtime packages, services, sockets, APT sources/keys, system configuration, systemd overrides, rootful/rootless data, runtime paths, and Docker group membership without reading credential-bearing contents in `roles/vps_baseline/tasks/inspect_docker.yml`
-- [ ] T018 [US2] Query every discovered relevant rootful or rootless Docker Engine Unix socket with read-only built-in URI calls for all containers, images, volumes, non-built-in networks, build cache, swarm/services/configs/secrets, and plugins, and fail closed without starting Docker when Docker-bearing state exists and any relevant daemon cannot be safely inspected in `roles/vps_baseline/tasks/inspect_docker.yml`
-- [ ] T019 [US2] Normalize Docker discovery into stable identifier/path sets and enforce exact equality with the host approval manifest, including invalidation when discovered state changes, in `roles/vps_baseline/tasks/inspect_docker.yml`
-- [ ] T020 [US2] Build the installed Docker-only purge set, protect distribution `containerd`, `runc`, and `podman-docker`, and compare it with one read-only `apt-get --simulate purge` command using `argv`, `changed_when: false`, and check-mode execution in `roles/vps_baseline/tasks/inspect_docker.yml`
-- [ ] T021 [US2] Stop and disable only approved Docker-specific services and purge only the simulated exact package set with `autoremove: false` and APT dependency auto-installation disabled in `roles/vps_baseline/tasks/remove_docker.yml`
-- [ ] T022 [US2] Remove only verified dedicated Docker APT sources, unreferenced Docker signing keys, and Docker-specific APT cache files while blocking mixed or noncanonical sources in `roles/vps_baseline/tasks/remove_docker.yml`
-- [ ] T023 [US2] Remove approved Docker configuration, systemd override, runtime, rootless, and data paths while removing `containerd.io` and `/var/lib/containerd` only after exclusive ownership is proved in `roles/vps_baseline/tasks/remove_docker.yml`
-- [ ] T024 [US2] Insert Docker inspection and gated removal between preflight and verification in `roles/vps_baseline/tasks/main.yml`
-- [ ] T025 [US2] Regather facts and assert Docker-specific packages, services, sources, keys, configuration, runtime paths, and data are absent after a normal apply while preserving the existing access/network checks in `roles/vps_baseline/tasks/verify.yml`
-- [ ] T026 [US2] Run locked syntax and lint validation plus the read-only check-mode contract for `playbooks/bootstrap.yml` and `roles/vps_baseline/`, and confirm its diff contains no SSH, user, firewall, network, netplan, cloud-init, DNS, or provider-resource changes
+- [X] T017 [US2] Discover installed Docker and shared-runtime packages, services, sockets, APT sources/keys, system configuration, systemd overrides, rootful/rootless data, runtime paths, and Docker group membership without reading credential-bearing contents in `roles/vps_baseline/tasks/inspect_docker.yml`
+- [X] T018 [US2] Query every discovered relevant rootful or rootless Docker Engine Unix socket with read-only built-in URI calls for all containers, images, volumes, non-built-in networks, build cache, swarm/services/configs/secrets, and plugins, and fail closed without starting Docker when Docker-bearing state exists and any relevant daemon cannot be safely inspected in `roles/vps_baseline/tasks/inspect_docker.yml`
+- [X] T019 [US2] Normalize Docker discovery into stable identifier/path sets and enforce exact equality with the host approval manifest, including invalidation when discovered state changes, in `roles/vps_baseline/tasks/inspect_docker.yml`
+- [X] T020 [US2] Build the installed Docker-only purge set, protect distribution `containerd`, `runc`, and `podman-docker`, and compare it with one read-only `apt-get --simulate purge` command using `argv`, `changed_when: false`, and check-mode execution in `roles/vps_baseline/tasks/inspect_docker.yml`
+- [X] T021 [US2] Stop and disable only approved Docker-specific services and purge only the simulated exact package set with `autoremove: false` and APT dependency auto-installation disabled in `roles/vps_baseline/tasks/remove_docker.yml`
+- [X] T022 [US2] Remove only verified dedicated Docker APT sources, unreferenced Docker signing keys, and Docker-specific APT cache files while blocking mixed or noncanonical sources in `roles/vps_baseline/tasks/remove_docker.yml`
+- [X] T023 [US2] Remove approved Docker configuration, systemd override, runtime, rootless, and data paths while removing `containerd.io` and `/var/lib/containerd` only after exclusive ownership is proved in `roles/vps_baseline/tasks/remove_docker.yml`
+- [X] T024 [US2] Insert Docker inspection and gated removal between preflight and verification in `roles/vps_baseline/tasks/main.yml`
+- [X] T025 [US2] Regather facts and assert Docker-specific packages, services, sources, keys, configuration, runtime paths, and data are absent after a normal apply while preserving the existing access/network checks in `roles/vps_baseline/tasks/verify.yml`
+- [X] T026 [US2] Run locked syntax and lint validation plus the read-only check-mode contract for `playbooks/bootstrap.yml` and `roles/vps_baseline/`, and confirm its diff contains no SSH, user, firewall, network, netplan, cloud-init, DNS, or provider-resource changes
 
 **Checkpoint**: Docker cleanup is fully declared, fail-closed, and previewable; check mode does not authorize or perform production cleanup.
 
@@ -97,11 +97,11 @@ description: "Implementation tasks for the managed VPS baseline"
 
 ### Implementation and Validation for User Story 3
 
-- [ ] T027 [US3] Make every discovery and verification operation report unchanged, preserve read-only safety checks in check mode, skip only impossible post-removal assertions in check mode, and make the Docker-absent path a no-op in `roles/vps_baseline/tasks/inspect_docker.yml`, `roles/vps_baseline/tasks/remove_docker.yml`, and `roles/vps_baseline/tasks/verify.yml`
-- [ ] T028 [US3] Verify role imports remain ordered and self-contained and that root transport remains scoped only to bootstrap-era entry points, correcting composition leaks in `roles/vps_baseline/tasks/main.yml`, `playbooks/connectivity.yml`, `playbooks/bootstrap.yml`, `inventory/hosts.yml`, and `ansible.cfg`
-- [ ] T029 [US3] After T027 and T028, reconcile final locked commands, safety-stop behavior, deployment separation, post-apply checks, and idempotency procedure with the final implementation in `specs/001-manage-vps-baseline/quickstart.md` and `specs/001-manage-vps-baseline/contracts/operator-interface.md`
-- [ ] T030 [US3] Run `uv sync --locked`, both locked playbook syntax checks, and locked ansible-lint against `pyproject.toml`, `uv.lock`, `playbooks/connectivity.yml`, `playbooks/bootstrap.yml`, and `roles/vps_baseline/`
-- [ ] T031 [US3] Run the read-only connectivity and `--check --diff` procedures in `specs/001-manage-vps-baseline/quickstart.md`; treat a non-mutating fail-closed `blocked-for-review` result caused by unexpected or ambiguous Docker state as a valid safety outcome requiring operator review before cleanup, and resolve only incorrect implementation, incompatibility with the approved design, or incorrect change reporting as defects in the referenced inventory, playbooks, and role files
+- [X] T027 [US3] Make every discovery and verification operation report unchanged, preserve read-only safety checks in check mode, skip only impossible post-removal assertions in check mode, and make the Docker-absent path a no-op in `roles/vps_baseline/tasks/inspect_docker.yml`, `roles/vps_baseline/tasks/remove_docker.yml`, and `roles/vps_baseline/tasks/verify.yml`
+- [X] T028 [US3] Verify role imports remain ordered and self-contained and that root transport remains scoped only to bootstrap-era entry points, correcting composition leaks in `roles/vps_baseline/tasks/main.yml`, `playbooks/connectivity.yml`, `playbooks/bootstrap.yml`, `inventory/hosts.yml`, and `ansible.cfg`
+- [X] T029 [US3] After T027 and T028, reconcile final locked commands, safety-stop behavior, deployment separation, post-apply checks, and idempotency procedure with the final implementation in `specs/001-manage-vps-baseline/quickstart.md` and `specs/001-manage-vps-baseline/contracts/operator-interface.md`
+- [X] T030 [US3] Run `uv sync --locked`, both locked playbook syntax checks, and locked ansible-lint against `pyproject.toml`, `uv.lock`, `playbooks/connectivity.yml`, `playbooks/bootstrap.yml`, and `roles/vps_baseline/`
+- [X] T031 [US3] Run the read-only connectivity and `--check --diff` procedures in `specs/001-manage-vps-baseline/quickstart.md`; treat a non-mutating fail-closed `blocked-for-review` result caused by unexpected or ambiguous Docker state as a valid safety outcome requiring operator review before cleanup, and resolve only incorrect implementation, incompatibility with the approved design, or incorrect change reporting as defects in the referenced inventory, playbooks, and role files
 
 **Checkpoint**: Repository implementation and all non-mutating validation are complete. No production application is authorized by completing this phase.
 
@@ -111,8 +111,8 @@ description: "Implementation tasks for the managed VPS baseline"
 
 **Purpose**: Perform the final repository-wide safety/scope audit and diff review after implementation, local validation, read-only target validation, and check mode are complete.
 
-- [ ] T032 Audit `inventory/`, `playbooks/`, `roles/`, `pyproject.toml`, and `uv.lock` for secrets, private SSH configuration, mutable dependency references, non-built-in Ansible collections, accidental ownership of excluded provider or SSH/network state, and any installation, configuration, or other introduction of Unreal Tournament 2004 state
-- [ ] T033 Confirm `git diff --check` passes and review the final changes against `specs/001-manage-vps-baseline/spec.md`, `specs/001-manage-vps-baseline/plan.md`, and `docs/adr/0001-use-ansible-for-host-configuration.md`
+- [X] T032 Audit `inventory/`, `playbooks/`, `roles/`, `pyproject.toml`, and `uv.lock` for secrets, private SSH configuration, mutable dependency references, non-built-in Ansible collections, accidental ownership of excluded provider or SSH/network state, and any installation, configuration, or other introduction of Unreal Tournament 2004 state
+- [X] T033 Confirm `git diff --check` passes and review the final changes against `specs/001-manage-vps-baseline/spec.md`, `specs/001-manage-vps-baseline/plan.md`, and `docs/adr/0001-use-ansible-for-host-configuration.md`
 
 **Implementation Completion Boundary**: `$speckit-implement` and any other repository implementation run MUST stop after T033 and may report repository implementation complete with T034–T035 still unchecked. Proceeding beyond this boundary requires a new, separate, explicit operator authorization to deploy at that time.
 
@@ -227,7 +227,7 @@ Task T010: Create roles/vps_baseline/vars/main.yml
 
 - `[P]` tasks change different files and have no dependency on unfinished work.
 - `[US1]`, `[US2]`, and `[US3]` map directly to the three prioritized user stories in `spec.md`.
-- Prefer fully qualified `ansible.builtin` modules; the sole planned command exception is the read-only APT purge simulation.
+- Prefer fully qualified `ansible.builtin` modules; command exceptions are limited to the read-only APT purge simulation and fixed-argument read-only `ctr` inventory needed to prove exclusive containerd ownership.
 - Do not install external Ansible collections or add Docker SDK dependencies.
 - Do not log or commit file contents that may contain registry credentials.
 - Commit after each task or logical group, but never treat a repository commit as deployment authorization.

@@ -1,0 +1,3 @@
+---
+# Non-secret host-specific desired state belongs here. Add exact Docker
+# cleanup approvals only after a blocked-for-review run and operator review.

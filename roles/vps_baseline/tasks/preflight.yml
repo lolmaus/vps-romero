@@ -1,0 +1,33 @@
+---
+- name: Verify the existing SSH transport before baseline work
+  ansible.builtin.ping:
+  changed_when: false
+
+- name: Gather target facts before baseline work
+  ansible.builtin.setup:
+  changed_when: false
+
+- name: Gather installed APT package facts
+  ansible.builtin.package_facts:
+    manager: apt
+  changed_when: false
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+  changed_when: false
+
+- name: Verify all destructive prerequisites
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'romero'
+      - ansible_host == 'romero.lolma.us'
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version == '26.04'
+      - ansible_facts.python.version.major == 3
+      - ansible_facts.python.version.minor == 14
+      - ansible_facts.user_uid == 0
+      - "'python3-apt' in ansible_facts.packages"
+    fail_msg: >-
+      Baseline work requires the declared romero.lolma.us host, Ubuntu
+      26.04, Python 3.14, effective UID 0, and pre-installed python3-apt.
+  changed_when: false

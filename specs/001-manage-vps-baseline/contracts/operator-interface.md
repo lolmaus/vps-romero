@@ -50,6 +50,19 @@ uv run --locked ansible-playbook playbooks/bootstrap.yml --limit romero --check 
 
 Read-only Docker API inventory and APT transaction simulation still execute and report unchanged. Mutating built-in modules predict their changes. The command stops nonzero if Docker state is unexpected or ambiguous, the exact approval manifest does not match discovery, or APT proposes removing anything outside the Docker-only request.
 
+Every discovered relevant rootful or rootless Docker daemon socket is queried.
+Docker-bearing state with no usable socket, or with any socket that cannot be
+fully inspected, is a non-mutating `blocked-for-review` result; the workflow
+does not start a daemon to bypass that stop.
+
+The workflow first reads each daemon's `/version` response, proves support for
+Engine API v1.52, and then uses explicitly versioned endpoints. Its verbose
+build-cache response must contain an unambiguous v1.52 `BuildCacheUsage`
+object. When `containerd.io` is installed, fixed-argument read-only `ctr`
+inventory must prove that every namespace belongs to Docker and that no active
+content transfer exists before the package or `/var/lib/containerd` can be
+selected for removal.
+
 Check mode does not prove that post-removal absence checks pass because predicted changes are not applied.
 
 ## Docker Review Contract
@@ -96,3 +109,6 @@ Immediately repeat the apply command. It must exit zero with `changed=0` for `ro
 ## Failure Contract
 
 A nonzero exit before cleanup is a safe stop. The operator reviews ordinary Ansible task output and the normalized identifiers/paths emitted by the safety assertion. The workflow must not suggest manual persistent changes; any authorized cleanup input is added declaratively and reviewed before rerunning.
+
+An expected `blocked-for-review` result in check mode is not by itself an
+implementation defect. It requires operator review before cleanup can proceed.

@@ -128,7 +128,7 @@ roles/
 
 - Gather installed-package and service facts and find candidate Docker repository, key, configuration, systemd override, data, runtime, rootless, and per-user paths without reading secret file contents.
 - If Docker is already completely absent, skip daemon inspection and all mutations and report no change.
-- When a Docker Unix socket is available, query the Engine API with read-only `ansible.builtin.uri` tasks for all containers, images, volumes, custom networks, build-cache usage, swarm state, services, configs, secrets, and plugins. Read-only inspection tasks run even under Ansible check mode and always report `changed: false`.
+- When a Docker Unix socket is available, query `/version`, prove the daemon supports Engine API v1.52, and use explicitly versioned read-only `ansible.builtin.uri` requests for all containers, images, volumes, custom networks, build-cache usage, swarm state, services, configs, secrets, and plugins. Require the v1.52 verbose `BuildCacheUsage` schema and fail closed rather than treating a missing or ambiguous field as empty. Read-only inspection tasks run even under Ansible check mode and always report `changed: false`.
 - When Docker-related packages or files exist but no daemon can be inspected, stop. Do not start Docker for inspection.
 - Normalize discovered identifiers and paths into the model in `data-model.md`. Any nonempty unexpected-state set must equal the host's exact approval manifest before cleanup can proceed. The default manifest is empty; no blanket force option exists.
 - Treat the canonical built-in networks (`bridge`, `host`, `none`) as installation scaffolding, not custom network state. Any other network blocks unless exactly reviewed.
@@ -136,7 +136,7 @@ roles/
 ### Package and service safety
 
 - Build the removal request from the intersection of installed packages and an explicit Docker-only allowlist. Never pass wildcards.
-- Classify distribution `containerd`, `runc`, and `podman-docker` as shared-risk and leave them untouched. Include Docker's bundled `containerd.io` only if Docker/containerd inspection is safe and no unrelated state or dependent package is found.
+- Classify distribution `containerd`, `runc`, and `podman-docker` as shared-risk and leave them untouched. Include Docker's bundled `containerd.io` only after fixed-argument, read-only `ctr` commands successfully enumerate every containerd namespace and relevant state category, every namespace is one reported by Docker, no active transfer exists, and the APT simulation finds no unrelated dependent package. Failure to inspect does not start containerd and blocks cleanup.
 - Run `apt-get --simulate purge` through one read-only `ansible.builtin.command` task using `argv`; parse the proposed `Remv` set and assert it contains no package outside the approved Docker removal set.
 - Stop and disable only present Docker-specific services after all gates pass. Stop `containerd` only when its selected package and data have been proved Docker-owned.
 - Purge the exact package list with `ansible.builtin.apt`, `autoremove: false`, and module dependency auto-installation disabled.
@@ -145,7 +145,7 @@ roles/
 
 - Remove canonical dedicated Docker APT source files only after verifying that they contain no unrelated stanza. A Docker URI in a mixed/noncanonical source blocks for review rather than causing whole-file deletion.
 - Remove a Docker key only after no remaining source refers to it; remove Docker-specific cached APT list files without refreshing or upgrading unrelated packages.
-- Remove `/etc/docker`, Docker-only systemd overrides/default files, `/var/lib/docker`, and Docker runtime paths after approval. Remove `/var/lib/containerd` only when `containerd.io` has been proved exclusively Docker-owned.
+- Remove `/etc/docker`, Docker-only systemd overrides/default files, `/var/lib/docker`, and Docker runtime paths after approval. Remove `/var/lib/containerd` only when the containerd namespace/state inventory and APT transaction together prove `containerd.io` is exclusively Docker-owned; nonempty Docker-owned residual containerd state also requires exact path review.
 - Inspect Docker group membership and rootless/per-user paths. Nonempty membership or user-owned paths block for exact review; content and credentials are never logged.
 - Do not call firewall, netplan, network, cloud-init, user, authorized-key, or sshd management modules. Docker runtime networking may disappear when Docker stops, but the role declares no provider/network configuration.
 

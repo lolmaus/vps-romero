@@ -1,0 +1,90 @@
+---
+- name: Stop and disable present Docker-specific services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ vps_baseline_docker_present_services }}"
+
+- name: Stop and disable Docker's bundled container runtime
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ vps_baseline_docker_bundled_runtime_services }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_package in vps_baseline_docker_purge_packages
+    - item in ansible_facts.services
+
+- name: Purge only the simulated Docker package set
+  ansible.builtin.apt:
+    name: "{{ vps_baseline_docker_purge_packages }}"
+    state: absent
+    purge: true
+    autoremove: false
+    install_recommends: false
+    auto_install_module_deps: false
+  when: vps_baseline_docker_purge_packages | length > 0
+
+- name: Remove verified dedicated Docker APT sources
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ vps_baseline_docker_source_paths | unique | sort }}"
+
+- name: Remove unreferenced Docker signing keys
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ vps_baseline_docker_key_paths }}"
+
+- name: Remove Docker-specific APT cache files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ vps_baseline_docker_apt_cache_paths }}"
+
+- name: Remove exactly approved Docker configuration and data paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ vps_baseline_docker_paths_requiring_approval }}"
+  register: vps_baseline_docker_approved_path_removals
+
+- name: Remove Docker-specific runtime paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: >-
+    {{ (vps_baseline_docker_runtime_paths_found
+        + vps_baseline_docker_socket_paths) | unique | sort(reverse=true) }}
+
+- name: Inspect Docker bundled-runtime data path
+  ansible.builtin.stat:
+    path: "{{ vps_baseline_docker_containerd_data_path }}"
+    follow: false
+  register: vps_baseline_docker_containerd_data_stat
+  changed_when: false
+
+- name: Remove exclusively owned Docker bundled-runtime data
+  ansible.builtin.file:
+    path: "{{ vps_baseline_docker_containerd_data_path }}"
+    state: absent
+  when:
+    - vps_baseline_docker_bundled_runtime_package in vps_baseline_docker_purge_packages
+    - vps_baseline_docker_containerd_exclusive
+    - vps_baseline_docker_containerd_data_stat.stat.exists
+
+- name: Remove the reviewed Docker group
+  ansible.builtin.group:
+    name: docker
+    state: absent
+  when:
+    - ansible_facts.getent_group.docker is defined
+
+- name: Reload systemd after removing Docker unit overrides
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: >-
+    vps_baseline_docker_approved_path_removals.results | default([])
+    | selectattr('changed') | list | length > 0

@@ -1,0 +1,12 @@
+---
+- name: Run baseline preflight
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Inspect Docker state and enforce cleanup safety gates
+  ansible.builtin.import_tasks: inspect_docker.yml
+
+- name: Remove the reviewed Docker environment
+  ansible.builtin.import_tasks: remove_docker.yml
+
+- name: Verify access and networking
+  ansible.builtin.import_tasks: verify.yml

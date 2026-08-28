@@ -43,9 +43,9 @@
 
 ## Ansible content boundaries
 
-**Decision**: Use fully qualified `ansible.builtin` modules for facts, assertions, Docker API reads, package removal, service control, filesystem cleanup, and network verification. Use `ansible.builtin.command` only for a read-only APT purge simulation because no built-in module exposes the complete dependent-removal set for an absent-state operation.
+**Decision**: Use fully qualified `ansible.builtin` modules for facts, assertions, Docker API reads, package removal, service control, filesystem cleanup, and network verification. Use `ansible.builtin.command` only for two narrowly scoped read-only inspections: the APT purge simulation, because no built-in module exposes the complete dependent-removal set for an absent-state operation, and `ctr` inventory commands, because Ansible has no built-in containerd API module.
 
-**Rationale**: Built-in modules provide native idempotence and check-mode behavior. `package_facts`, `service_facts`, `uri`, `apt`, `systemd_service`, `file`, `find`, `stat`, `getent`, `assert`, and `meta` cover the workflow except for inspecting APT's exact proposed removal transaction. That exception will use `argv`, never a shell, and will set `changed_when: false` and `check_mode: false` so the same read-only safety gate runs during dry runs. The purge itself remains an `ansible.builtin.apt` task with `autoremove: false`.
+**Rationale**: Built-in modules provide native idempotence and check-mode behavior. `package_facts`, `service_facts`, `uri`, `apt`, `systemd_service`, `file`, `find`, `stat`, `getent`, `assert`, and `meta` cover the workflow except for inspecting APT's exact proposed removal transaction and querying containerd's gRPC API. Both command exceptions use fixed `argv`, never a shell, and set `changed_when: false` and `check_mode: false` so the read-only safety gates run during dry runs. The APT purge itself remains an `ansible.builtin.apt` task with `autoremove: false`.
 
 The role will set `auto_install_module_deps: false` for APT operations. If the target lacks `python3-apt`, preflight fails rather than silently installing a package outside the minimal baseline.
 
@@ -64,7 +64,7 @@ The role will set `auto_install_module_deps: false` for APT operations. If the t
 
 ## Docker state inspection and review gate
 
-**Decision**: Inspect the running Docker daemon through its local Unix socket with read-only `ansible.builtin.uri` calls. Inventory containers, images, volumes, custom networks, build cache, swarm state, and other daemon-visible state before stopping services or deleting anything. Fail closed when state is present, inspection is unavailable, or the result is ambiguous.
+**Decision**: Inspect the running Docker daemon through its local Unix socket with read-only `ansible.builtin.uri` calls. Query `/version` first, require every daemon to support Engine API v1.52, and use explicitly versioned URLs for all later requests. Inventory containers, images, volumes, custom networks, build cache, swarm state, and other daemon-visible state before stopping services or deleting anything. Read build cache from the v1.52 verbose `BuildCacheUsage` schema and fail closed when that schema is missing or ambiguous. Fail closed when state is present, inspection is unavailable, or any result is ambiguous.
 
 **Rationale**: The Docker Engine API returns structured data and `ansible.builtin.uri` supports Unix sockets, avoiding both shell parsing and an external Docker collection. The inspection will cover at least:
 
@@ -96,7 +96,7 @@ If Docker packages or data exist but no usable daemon socket is available, the r
 
 ## Docker package and filesystem removal
 
-**Decision**: Purge only an explicit allowlist of installed Docker-specific packages, after comparing a read-only APT simulation with that allowlist. Never use package wildcards or APT autoremove. Remove only verified Docker-owned repository, key, configuration, cache, runtime, and data paths after the state-review gate passes.
+**Decision**: Purge only an explicit allowlist of installed Docker-specific packages, after comparing a read-only APT simulation with that allowlist. Never use package wildcards or APT autoremove. Remove only verified Docker-owned repository, key, configuration, cache, runtime, and data paths after the state-review gate passes. Before selecting `containerd.io` or `/var/lib/containerd`, use the installed `ctr` client read-only to enumerate containerd namespaces and state. Require every namespace to be one reported by Docker, reject active transfers, and fail closed if the daemon is unavailable or exclusive Docker ownership cannot be proved without starting it.
 
 **Rationale**: Docker's Ubuntu documentation distinguishes Docker Engine packages from distribution packages and documents that package purge does not remove images, volumes, configuration, `/var/lib/docker`, `/var/lib/containerd`, the Docker APT source, or its key. The initial allowlist will cover the official Docker Engine packages and unambiguously Docker-specific Ubuntu package variants. Shared runtimes such as distribution `containerd` and `runc`, and compatibility packages such as `podman-docker`, are not automatically removed. Docker's bundled `containerd.io` and `/var/lib/containerd` are removable only when inspection and the APT transaction prove that no unrelated consumer is affected.
 
@@ -113,6 +113,7 @@ The role stops existing Docker services only after all discovery, approval, and 
 **Source**:
 
 - [Docker Engine installation and uninstall instructions for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+- [containerd namespaces and multi-tenancy](https://github.com/containerd/containerd/blob/main/docs/namespaces.md)
 
 ## Repository composition and transport
 
