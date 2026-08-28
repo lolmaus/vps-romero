@@ -53,3 +53,23 @@ For feature development, follow the Spec Kit artifacts under `specs/`.
 
 Do not bypass requirements or architectural decisions recorded by the
 current feature specification and plan.
+
+## Action authorization
+
+Informational requests are read-only. Requests to answer a question, explain,
+inspect, diagnose, review, summarize, report status, or describe next steps do
+not authorize repository modifications.
+
+Repository modifications are authorized when either:
+
+- the user explicitly asks to create, change, fix, update, implement, or edit
+  repository content; or
+- the user explicitly invokes a named workflow, command, or skill whose
+  documented purpose includes creating or modifying repository artifacts.
+
+Authorization from a workflow invocation is limited to that workflow's
+documented scope. It does not imply authorization for unrelated changes or
+production deployment.
+
+When intent is informational, inspect and report only. Read-only validation and
+diagnostics are allowed when needed to answer the request.

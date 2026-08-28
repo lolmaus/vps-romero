@@ -1,0 +1,11 @@
+---
+- name: Apply the minimal managed VPS baseline
+  hosts: managed_vps
+  gather_facts: false
+  remote_user: root
+  become: false
+  serial: 1
+  any_errors_fatal: true
+
+  roles:
+    - role: vps_baseline

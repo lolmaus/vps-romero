@@ -1,0 +1,17 @@
+---
+# Non-secret host-specific desired state belongs here. Add exact Docker
+# cleanup approvals only after a blocked-for-review run and operator review.
+vps_baseline_docker_approved_state:
+  containers: []
+  images: []
+  volumes: []
+  custom_networks: []
+  build_cache: []
+  swarm_objects: []
+  plugins: []
+  paths:
+    - /etc/default/docker
+    - /etc/docker
+    - /var/lib/containerd
+    - /var/lib/docker
+  group_members: []

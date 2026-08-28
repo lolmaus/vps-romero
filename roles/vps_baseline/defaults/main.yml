@@ -1,0 +1,11 @@
+---
+vps_baseline_docker_approved_state:
+  containers: []
+  images: []
+  volumes: []
+  custom_networks: []
+  build_cache: []
+  swarm_objects: []
+  plugins: []
+  paths: []
+  group_members: []

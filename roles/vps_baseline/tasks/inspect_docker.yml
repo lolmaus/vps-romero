@@ -1,0 +1,938 @@
+---
+- name: Initialize Docker discovery state
+  ansible.builtin.set_fact:
+    vps_baseline_docker_installed_packages: >-
+      {{ vps_baseline_docker_package_allowlist
+         | intersect(ansible_facts.packages.keys() | list) | sort }}
+    vps_baseline_docker_installed_shared_runtime_packages: >-
+      {{ vps_baseline_docker_shared_runtime_packages
+         | intersect(ansible_facts.packages.keys() | list) | sort }}
+    vps_baseline_docker_bundled_runtime_installed: >-
+      {{ vps_baseline_docker_bundled_runtime_package in ansible_facts.packages }}
+    vps_baseline_docker_present_services: []
+    vps_baseline_docker_rootless_path_candidates: []
+    vps_baseline_docker_rootless_socket_candidates: []
+    vps_baseline_docker_source_paths: []
+    vps_baseline_docker_mixed_source_paths: []
+    vps_baseline_docker_key_paths: []
+    vps_baseline_docker_key_external_references: []
+    vps_baseline_docker_configuration_paths_found: []
+    vps_baseline_docker_data_paths_found: []
+    vps_baseline_docker_runtime_paths_found: []
+    vps_baseline_docker_rootless_paths_found: []
+    vps_baseline_docker_group_members: []
+    vps_baseline_docker_socket_paths: []
+    vps_baseline_docker_inspectable_sockets: []
+    vps_baseline_docker_api_incompatible_sockets: []
+    vps_baseline_docker_build_cache_schema_errors: []
+    vps_baseline_docker_containers: []
+    vps_baseline_docker_images: []
+    vps_baseline_docker_volumes: []
+    vps_baseline_docker_custom_networks: []
+    vps_baseline_docker_build_cache: []
+    vps_baseline_docker_swarm_objects: []
+    vps_baseline_docker_plugins: []
+    vps_baseline_docker_apt_cache_paths: []
+    vps_baseline_docker_reported_containerd_addresses: []
+    vps_baseline_docker_reported_containerd_namespaces: []
+    vps_baseline_docker_containerd_info_schema_errors: []
+    vps_baseline_docker_containerd_namespaces: []
+    vps_baseline_docker_containerd_query_errors: []
+    vps_baseline_docker_containerd_active_use_records: []
+    vps_baseline_docker_containerd_no_unrelated_use_detected: false
+    vps_baseline_docker_simulated_removals: []
+
+- name: Record present Docker-specific system services
+  ansible.builtin.set_fact:
+    vps_baseline_docker_present_services: >-
+      {{ vps_baseline_docker_present_services + [item] }}
+  loop: "{{ vps_baseline_docker_system_services }}"
+  when: item in ansible_facts.services
+
+- name: Gather local account records for rootless Docker discovery
+  ansible.builtin.getent:
+    database: passwd
+  changed_when: false
+
+- name: Build per-user Docker path candidates
+  ansible.builtin.set_fact:
+    vps_baseline_docker_rootless_path_candidates: >-
+      {{ vps_baseline_docker_rootless_path_candidates
+         + ([account_path_item.0.value[4] ~ '/' ~ account_path_item.1]
+            if account_path_item.0.value[4] != '/' else []) }}
+  loop: >-
+    {{ (ansible_facts.getent_passwd | dict2items)
+       | product(vps_baseline_docker_rootless_relative_paths) | list }}
+  loop_control:
+    label: "{{ account_path_item.0.key }}:{{ account_path_item.1 }}"
+    loop_var: account_path_item
+  when:
+    - account_path_item.0.value[4] is match('^/')
+    - >-
+      account_path_item.0.value[1] | int == 0
+      or account_path_item.0.value[1] | int >= 1000
+    - account_path_item.0.value[5] is not search('(nologin|/false)$')
+
+- name: Normalize per-user Docker path candidates
+  ansible.builtin.set_fact:
+    vps_baseline_docker_rootless_path_candidates: >-
+      {{ vps_baseline_docker_rootless_path_candidates | unique | sort }}
+
+- name: Build per-user Docker socket candidates
+  ansible.builtin.set_fact:
+    vps_baseline_docker_rootless_socket_candidates: >-
+      {{ vps_baseline_docker_rootless_socket_candidates
+         + ([account_socket_item.0.value[4] ~ '/' ~ account_socket_item.1]
+            if account_socket_item.0.value[4] != '/' else []) }}
+  loop: >-
+    {{ (ansible_facts.getent_passwd | dict2items)
+       | product(vps_baseline_docker_rootless_socket_relative_paths) | list }}
+  loop_control:
+    label: "{{ account_socket_item.0.key }}:{{ account_socket_item.1 }}"
+    loop_var: account_socket_item
+  when:
+    - account_socket_item.0.value[4] is match('^/')
+    - >-
+      account_socket_item.0.value[1] | int == 0
+      or account_socket_item.0.value[1] | int >= 1000
+    - account_socket_item.0.value[5] is not search('(nologin|/false)$')
+
+- name: Inspect candidate Docker configuration paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ vps_baseline_docker_configuration_paths }}"
+  register: vps_baseline_docker_configuration_stats
+  changed_when: false
+
+- name: Record existing Docker configuration paths
+  ansible.builtin.set_fact:
+    vps_baseline_docker_configuration_paths_found: >-
+      {{ vps_baseline_docker_configuration_stats.results
+         | selectattr('stat.exists') | map(attribute='item') | unique | sort }}
+
+- name: Inspect candidate Docker data paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ vps_baseline_docker_data_paths }}"
+  register: vps_baseline_docker_data_stats
+  changed_when: false
+
+- name: Record existing Docker data paths
+  ansible.builtin.set_fact:
+    vps_baseline_docker_data_paths_found: >-
+      {{ vps_baseline_docker_data_stats.results
+         | selectattr('stat.exists') | map(attribute='item') | unique | sort }}
+
+- name: Inspect candidate Docker runtime paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ vps_baseline_docker_runtime_paths }}"
+  register: vps_baseline_docker_runtime_stats
+  changed_when: false
+
+- name: Record existing Docker runtime paths
+  ansible.builtin.set_fact:
+    vps_baseline_docker_runtime_paths_found: >-
+      {{ vps_baseline_docker_runtime_stats.results
+         | selectattr('stat.exists') | map(attribute='item') | unique | sort }}
+
+- name: Inspect per-user Docker paths without reading their contents
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ vps_baseline_docker_rootless_path_candidates }}"
+  register: vps_baseline_docker_rootless_path_stats
+  changed_when: false
+
+- name: Record existing per-user Docker paths
+  ansible.builtin.set_fact:
+    vps_baseline_docker_rootless_paths_found: >-
+      {{ vps_baseline_docker_rootless_path_stats.results
+         | selectattr('stat.exists') | map(attribute='item') | unique | sort }}
+
+- name: Inspect Docker group membership
+  ansible.builtin.getent:
+    database: group
+    key: docker
+    fail_key: false
+  changed_when: false
+
+- name: Normalize Docker group membership
+  ansible.builtin.set_fact:
+    vps_baseline_docker_group_members: >-
+      {{ ((ansible_facts.getent_group.docker | default(['', '', '']))[2]
+          | default('') | split(','))
+         | reject('equalto', '') | unique | sort }}
+
+- name: Find APT source definitions
+  ansible.builtin.find:
+    paths:
+      - /etc/apt
+    patterns:
+      - sources.list
+      - "*.list"
+      - "*.sources"
+    file_type: file
+    recurse: true
+  register: vps_baseline_docker_all_apt_source_files
+  changed_when: false
+
+- name: Read APT source definitions privately for classification
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  loop: "{{ vps_baseline_docker_all_apt_source_files.files }}"
+  register: vps_baseline_docker_apt_source_contents
+  changed_when: false
+  no_log: true
+
+- name: Record source definitions that reference Docker
+  ansible.builtin.set_fact:
+    vps_baseline_docker_source_paths: >-
+      {{ vps_baseline_docker_source_paths + [item.source] }}
+  loop: "{{ vps_baseline_docker_apt_source_contents.results }}"
+  when: "'download.docker.com' in (item.content | b64decode)"
+  no_log: true
+
+- name: Classify mixed or noncanonical Docker source definitions
+  ansible.builtin.set_fact:
+    vps_baseline_docker_mixed_source_paths: >-
+      {{ vps_baseline_docker_mixed_source_paths + [item.source] }}
+  vars:
+    source_text: "{{ item.content | b64decode }}"
+    source_location_lines: >-
+      {{ source_text.splitlines()
+         | map('trim') | reject('equalto', '') | reject('match', '^#')
+         | select('match', '^(deb\\s|URIs:)') | list }}
+    unrelated_location_lines: >-
+      {{ source_location_lines | reject('search', 'download\\.docker\\.com') | list }}
+  loop: "{{ vps_baseline_docker_apt_source_contents.results }}"
+  when:
+    - item.source in vps_baseline_docker_source_paths
+    - >-
+      item.source not in vps_baseline_docker_source_candidates
+      or unrelated_location_lines | length > 0
+  no_log: true
+
+- name: Stop on mixed or noncanonical Docker APT sources
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_mixed_source_paths | length == 0
+    fail_msg: >-
+      blocked-for-review: Docker repository content appears in a mixed or
+      noncanonical APT source: {{ vps_baseline_docker_mixed_source_paths }}.
+      No source will be removed.
+  changed_when: false
+
+- name: Inspect candidate Docker signing keys
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ vps_baseline_docker_key_candidates }}"
+  register: vps_baseline_docker_key_stats
+  changed_when: false
+
+- name: Record existing Docker signing keys
+  ansible.builtin.set_fact:
+    vps_baseline_docker_key_paths: >-
+      {{ vps_baseline_docker_key_stats.results
+         | selectattr('stat.exists') | map(attribute='item') | unique | sort }}
+
+- name: Detect signing keys referenced outside Docker source definitions
+  ansible.builtin.set_fact:
+    vps_baseline_docker_key_external_references: >-
+      {{ vps_baseline_docker_key_external_references
+         + [key_source_item.0 ~ ':' ~ key_source_item.1.source] }}
+  loop: >-
+    {{ vps_baseline_docker_key_paths
+       | product(vps_baseline_docker_apt_source_contents.results) | list }}
+  loop_control:
+    label: "{{ key_source_item.0 }}"
+    loop_var: key_source_item
+  when:
+    - key_source_item.1.source not in vps_baseline_docker_source_paths
+    - key_source_item.0 in (key_source_item.1.content | b64decode)
+  no_log: true
+
+- name: Stop when a Docker key is shared with another source
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_key_external_references | length == 0
+    fail_msg: >-
+      blocked-for-review: a candidate Docker signing key is referenced by a
+      non-Docker source: {{ vps_baseline_docker_key_external_references }}.
+      No key will be removed.
+  changed_when: false
+
+- name: Find Docker-specific APT cache files
+  ansible.builtin.find:
+    paths:
+      - "{{ vps_baseline_docker_apt_cache_path }}"
+    patterns:
+      - "*download.docker.com*"
+    file_type: file
+    recurse: false
+  register: vps_baseline_docker_apt_cache_files
+  changed_when: false
+
+- name: Record Docker-specific APT cache files
+  ansible.builtin.set_fact:
+    vps_baseline_docker_apt_cache_paths: >-
+      {{ vps_baseline_docker_apt_cache_files.files
+         | map(attribute='path') | unique | sort }}
+
+- name: Find Docker runtime state under runtime user directories
+  ansible.builtin.find:
+    paths:
+      - /run/user
+    patterns:
+      - docker
+      - docker.sock
+    file_type: any
+    recurse: true
+  register: vps_baseline_docker_runtime_socket_files
+  changed_when: false
+
+- name: Record per-user Docker runtime paths
+  ansible.builtin.set_fact:
+    vps_baseline_docker_runtime_paths_found: >-
+      {{ (vps_baseline_docker_runtime_paths_found
+          + (vps_baseline_docker_runtime_socket_files.files
+             | map(attribute='path') | list)) | unique | sort }}
+
+- name: Inspect every candidate Docker daemon socket
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: >-
+    {{ (vps_baseline_docker_system_socket_candidates
+        + vps_baseline_docker_rootless_socket_candidates
+        + (vps_baseline_docker_runtime_socket_files.files
+           | map(attribute='path') | list)) | unique | sort }}
+  register: vps_baseline_docker_socket_stats
+  changed_when: false
+
+- name: Record every discovered Docker daemon socket
+  ansible.builtin.set_fact:
+    vps_baseline_docker_socket_paths: >-
+      {{ vps_baseline_docker_socket_stats.results
+         | selectattr('stat.exists') | selectattr('stat.issock')
+         | map(attribute='item') | unique | sort }}
+
+- name: Determine whether Docker-bearing state exists
+  ansible.builtin.set_fact:
+    vps_baseline_docker_bearing_state: >-
+      {{ (vps_baseline_docker_installed_packages | length > 0)
+         or vps_baseline_docker_bundled_runtime_installed
+         or (vps_baseline_docker_present_services | length > 0)
+         or (vps_baseline_docker_source_paths | length > 0)
+         or (vps_baseline_docker_key_paths | length > 0)
+         or (vps_baseline_docker_configuration_paths_found | length > 0)
+         or (vps_baseline_docker_data_paths_found | length > 0)
+         or (vps_baseline_docker_runtime_paths_found | length > 0)
+         or (vps_baseline_docker_rootless_paths_found | length > 0)
+         or (vps_baseline_docker_group_members | length > 0)
+         or (vps_baseline_docker_socket_paths | length > 0) }}
+
+- name: Probe every discovered Docker daemon socket without starting Docker
+  ansible.builtin.uri:
+    url: http://localhost/version
+    unix_socket: "{{ item }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  loop: "{{ vps_baseline_docker_socket_paths }}"
+  register: vps_baseline_docker_socket_probes
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Record safely inspectable Docker daemon sockets
+  ansible.builtin.set_fact:
+    vps_baseline_docker_inspectable_sockets: >-
+      {{ vps_baseline_docker_inspectable_sockets + [item.item] }}
+  loop: "{{ vps_baseline_docker_socket_probes.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - not (item.failed | default(false))
+    - item.status | default(0) == 200
+    - item.json.ApiVersion is defined
+    - item.json.MinAPIVersion is defined
+
+- name: Record Docker daemons incompatible with the selected API version
+  ansible.builtin.set_fact:
+    vps_baseline_docker_api_incompatible_sockets: >-
+      {{ vps_baseline_docker_api_incompatible_sockets
+         + [item.item ~ ':supported=' ~ item.json.MinAPIVersion ~ '-'
+            ~ item.json.ApiVersion] }}
+  loop: "{{ vps_baseline_docker_socket_probes.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - not (item.failed | default(false))
+    - item.status | default(0) == 200
+    - item.json.ApiVersion is defined
+    - item.json.MinAPIVersion is defined
+    - >-
+      not (item.json.ApiVersion
+           is version(vps_baseline_docker_engine_api_version, '>='))
+      or not (item.json.MinAPIVersion
+              is version(vps_baseline_docker_engine_api_version, '<='))
+
+- name: Require inspection of every relevant Docker daemon
+  ansible.builtin.assert:
+    that:
+      - >-
+        not vps_baseline_docker_bearing_state
+        or vps_baseline_docker_socket_paths | length > 0
+      - >-
+        not vps_baseline_docker_bearing_state
+        or (vps_baseline_docker_inspectable_sockets | unique | sort)
+           == (vps_baseline_docker_socket_paths | unique | sort)
+      - vps_baseline_docker_api_incompatible_sockets | length == 0
+    fail_msg: >-
+      blocked-for-review: Docker-bearing state exists, but every relevant
+      daemon could not be safely inspected without starting Docker.
+      Discovered sockets={{ vps_baseline_docker_socket_paths }}, inspectable
+      sockets={{ vps_baseline_docker_inspectable_sockets }}, API
+      incompatibilities={{ vps_baseline_docker_api_incompatible_sockets }}.
+      Required API={{ vps_baseline_docker_engine_api_version }}. No cleanup will run.
+  changed_when: false
+
+- name: Query all required read-only Docker Engine endpoints
+  ansible.builtin.uri:
+    url: >-
+      http://localhost/v{{ vps_baseline_docker_engine_api_version
+      }}{{ item.1.value }}
+    unix_socket: "{{ item.0 }}"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 406
+      - 503
+  loop: >-
+    {{ vps_baseline_docker_inspectable_sockets
+       | product(vps_baseline_docker_engine_api_endpoints | dict2items) | list }}
+  loop_control:
+    label: "{{ item.0 }}:{{ item.1.key }}"
+  register: vps_baseline_docker_api_results
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Record inconclusive Docker Engine endpoint responses
+  ansible.builtin.set_fact:
+    vps_baseline_docker_inconclusive_endpoints: >-
+      {{ (vps_baseline_docker_inconclusive_endpoints | default([]))
+         + [item.item.0 ~ ':' ~ item.item.1.key ~ ':'
+            ~ (item.status | default('unavailable') | string)] }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when: >-
+    not ((item.status | default(0) == 200)
+         or (item.item.1.key in ['services', 'configs', 'secrets']
+             and item.status | default(0) in [406, 503]))
+
+- name: Require conclusive responses from all Docker Engine endpoints
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_inconclusive_endpoints | default([]) | length == 0
+    fail_msg: >-
+      blocked-for-review: Docker endpoints could not be safely inspected:
+      {{ vps_baseline_docker_inconclusive_endpoints | default([]) }}.
+      No cleanup will run.
+  changed_when: false
+
+- name: Record missing Docker build-cache usage schemas
+  ansible.builtin.set_fact:
+    vps_baseline_docker_build_cache_schema_errors: >-
+      {{ vps_baseline_docker_build_cache_schema_errors
+         + [item.item.0 ~ ':BuildCacheUsage missing or not an object'] }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'system_df'
+    - item.status | default(0) == 200
+    - >-
+      item.json.BuildCacheUsage is not defined
+      or item.json.BuildCacheUsage is not mapping
+
+- name: Record ambiguous nonempty Docker build-cache usage schemas
+  ansible.builtin.set_fact:
+    vps_baseline_docker_build_cache_schema_errors: >-
+      {{ vps_baseline_docker_build_cache_schema_errors
+         + [item.item.0 ~ ':BuildCacheUsage verbose items are ambiguous'] }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'system_df'
+    - item.status | default(0) == 200
+    - item.json.BuildCacheUsage is defined
+    - item.json.BuildCacheUsage is mapping
+    - item.json.BuildCacheUsage | length > 0
+    - >-
+      item.json.BuildCacheUsage.TotalCount is not defined
+      or item.json.BuildCacheUsage.TotalCount is not integer
+      or item.json.BuildCacheUsage.Items is not defined
+      or item.json.BuildCacheUsage.Items is not sequence
+      or item.json.BuildCacheUsage.Items is string
+      or (item.json.BuildCacheUsage.TotalCount | int)
+         != (item.json.BuildCacheUsage.Items | length)
+
+- name: Require an unambiguous Docker build-cache usage schema
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_build_cache_schema_errors | length == 0
+    fail_msg: >-
+      blocked-for-review: Engine API v{{ vps_baseline_docker_engine_api_version }}
+      did not return the expected verbose BuildCacheUsage schema on every
+      daemon: {{ vps_baseline_docker_build_cache_schema_errors }}.
+      Build cache will not be assumed empty and no cleanup will run.
+  changed_when: false
+
+- name: Normalize discovered Docker containers
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containers: >-
+      {{ (vps_baseline_docker_containers
+          + (item.json | default([]) | map(attribute='Id') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'containers'
+    - item.status | default(0) == 200
+
+- name: Normalize discovered Docker images
+  ansible.builtin.set_fact:
+    vps_baseline_docker_images: >-
+      {{ (vps_baseline_docker_images
+          + (item.json | default([]) | map(attribute='Id') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'images'
+    - item.status | default(0) == 200
+
+- name: Normalize discovered Docker volumes
+  ansible.builtin.set_fact:
+    vps_baseline_docker_volumes: >-
+      {{ (vps_baseline_docker_volumes
+          + (item.json.Volumes | default([]) | map(attribute='Name') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'volumes'
+    - item.status | default(0) == 200
+
+- name: Normalize discovered custom Docker networks
+  ansible.builtin.set_fact:
+    vps_baseline_docker_custom_networks: >-
+      {{ (vps_baseline_docker_custom_networks
+          + (item.json | default([])
+             | rejectattr('Name', 'in', vps_baseline_docker_builtin_networks)
+             | map(attribute='Id') | list)) | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'networks'
+    - item.status | default(0) == 200
+
+- name: Normalize discovered Docker build cache
+  ansible.builtin.set_fact:
+    vps_baseline_docker_build_cache: >-
+      {{ (vps_baseline_docker_build_cache
+          + (([] if item.json.BuildCacheUsage | length == 0
+              else item.json.BuildCacheUsage.Items)
+             | map(attribute='ID') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'system_df'
+    - item.status | default(0) == 200
+
+- name: Normalize discovered Docker swarm activation
+  ansible.builtin.set_fact:
+    vps_baseline_docker_swarm_objects: >-
+      {{ (vps_baseline_docker_swarm_objects
+          + ['swarm:' ~ (item.json.Swarm.NodeID | default('active'))])
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'info'
+    - item.status | default(0) == 200
+    - item.json.Swarm.LocalNodeState | default('inactive') != 'inactive'
+
+- name: Normalize discovered Docker swarm objects
+  ansible.builtin.set_fact:
+    vps_baseline_docker_swarm_objects: >-
+      {{ (vps_baseline_docker_swarm_objects
+          + (item.json | default([]) | map(attribute='ID')
+             | map('regex_replace', '^(.*)$', item.item.1.key ~ ':\\1') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key in ['services', 'configs', 'secrets']
+    - item.status | default(0) == 200
+
+- name: Normalize discovered Docker plugins
+  ansible.builtin.set_fact:
+    vps_baseline_docker_plugins: >-
+      {{ (vps_baseline_docker_plugins
+          + (item.json | default([]) | map(attribute='Id') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - item.item.1.key == 'plugins'
+    - item.status | default(0) == 200
+
+- name: Record missing Docker-reported containerd schemas
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containerd_info_schema_errors: >-
+      {{ vps_baseline_docker_containerd_info_schema_errors
+         + [item.item.0 ~ ':Containerd missing or not an object'] }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_installed
+    - item.item.1.key == 'info'
+    - item.status | default(0) == 200
+    - item.json.Containerd is not defined or item.json.Containerd is not mapping
+
+- name: Record incomplete Docker-reported containerd schemas
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containerd_info_schema_errors: >-
+      {{ vps_baseline_docker_containerd_info_schema_errors
+         + [item.item.0 ~ ':Containerd address or namespaces missing'] }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_installed
+    - item.item.1.key == 'info'
+    - item.status | default(0) == 200
+    - item.json.Containerd is defined
+    - item.json.Containerd is mapping
+    - >-
+      item.json.Containerd.Address is not defined
+      or item.json.Containerd.Address is not string
+      or item.json.Containerd.Namespaces is not defined
+      or item.json.Containerd.Namespaces is not mapping
+      or item.json.Containerd.Namespaces.Containers is not defined
+      or item.json.Containerd.Namespaces.Plugins is not defined
+
+- name: Record Docker-reported containerd addresses
+  ansible.builtin.set_fact:
+    vps_baseline_docker_reported_containerd_addresses: >-
+      {{ (vps_baseline_docker_reported_containerd_addresses
+          + [item.json.Containerd.Address]) | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_installed
+    - item.item.1.key == 'info'
+    - item.status | default(0) == 200
+    - item.json.Containerd is defined
+    - item.json.Containerd is mapping
+    - item.json.Containerd.Address is defined
+    - item.json.Containerd.Address is string
+
+- name: Record namespaces Docker assigns to the bundled containerd daemon
+  ansible.builtin.set_fact:
+    vps_baseline_docker_reported_containerd_namespaces: >-
+      {{ (vps_baseline_docker_reported_containerd_namespaces
+          + [item.json.Containerd.Namespaces.Containers,
+             item.json.Containerd.Namespaces.Plugins])
+         | reject('equalto', '') | unique | sort }}
+  loop: "{{ vps_baseline_docker_api_results.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.key }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_installed
+    - item.item.1.key == 'info'
+    - item.status | default(0) == 200
+    - item.json.Containerd is defined
+    - item.json.Containerd is mapping
+    - item.json.Containerd.Address | default('') == vps_baseline_docker_containerd_socket_path
+    - item.json.Containerd.Namespaces is defined
+    - item.json.Containerd.Namespaces is mapping
+    - item.json.Containerd.Namespaces.Containers is defined
+    - item.json.Containerd.Namespaces.Plugins is defined
+
+- name: Inspect the bundled containerd client and socket
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - "{{ vps_baseline_docker_containerd_cli_path }}"
+    - "{{ vps_baseline_docker_containerd_socket_path }}"
+  register: vps_baseline_docker_containerd_endpoint_stats
+  when: vps_baseline_docker_bundled_runtime_installed
+  changed_when: false
+
+- name: Require a Docker-reported inspectable bundled containerd daemon
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_containerd_info_schema_errors | length == 0
+      - >-
+        vps_baseline_docker_containerd_socket_path
+        in vps_baseline_docker_reported_containerd_addresses
+      - vps_baseline_docker_reported_containerd_namespaces | length > 0
+      - >-
+        vps_baseline_docker_containerd_endpoint_stats.results
+        | selectattr('stat.exists') | list | length == 2
+      - vps_baseline_docker_containerd_endpoint_stats.results[0].stat.executable
+      - vps_baseline_docker_containerd_endpoint_stats.results[1].stat.issock
+    fail_msg: >-
+      blocked-for-review: containerd.io is installed, but Docker's containerd
+      address/namespaces or the existing ctr/socket endpoint could not be
+      conclusively inspected without starting a daemon. Docker addresses=
+      {{ vps_baseline_docker_reported_containerd_addresses }}, Docker namespaces=
+      {{ vps_baseline_docker_reported_containerd_namespaces }}, schema errors=
+      {{ vps_baseline_docker_containerd_info_schema_errors }}. No cleanup will run.
+  when: vps_baseline_docker_bundled_runtime_installed
+  changed_when: false
+
+- name: Enumerate existing containerd namespaces without mutation
+  ansible.builtin.command:
+    argv:
+      - "{{ vps_baseline_docker_containerd_cli_path }}"
+      - --address
+      - "{{ vps_baseline_docker_containerd_socket_path }}"
+      - namespaces
+      - list
+      - --quiet
+  register: vps_baseline_docker_containerd_namespace_query
+  when: vps_baseline_docker_bundled_runtime_installed
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Require successful containerd namespace inspection
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_containerd_namespace_query.rc == 0
+    fail_msg: >-
+      blocked-for-review: the existing containerd daemon could not be queried
+      without starting it. No cleanup will run.
+  when: vps_baseline_docker_bundled_runtime_installed
+  changed_when: false
+
+- name: Normalize existing containerd namespaces
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containerd_namespaces: >-
+      {{ vps_baseline_docker_containerd_namespace_query.stdout_lines
+         | map('trim') | reject('equalto', '') | unique | sort }}
+  when: vps_baseline_docker_bundled_runtime_installed
+
+- name: Inspect active tasks and transfers in every containerd namespace
+  ansible.builtin.command:
+    argv: >-
+      {{ [vps_baseline_docker_containerd_cli_path,
+          '--address', vps_baseline_docker_containerd_socket_path,
+          '--namespace', item.0] + item.1.argv }}
+  loop: >-
+    {{ vps_baseline_docker_containerd_namespaces
+       | product(vps_baseline_docker_containerd_active_use_queries) | list }}
+  loop_control:
+    label: "{{ item.0 }}:{{ item.1.name }}"
+  register: vps_baseline_docker_containerd_active_use_queries_result
+  when: vps_baseline_docker_bundled_runtime_installed
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Record inconclusive containerd active-use queries
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containerd_query_errors: >-
+      {{ vps_baseline_docker_containerd_query_errors
+         + [item.item.0 ~ ':' ~ item.item.1.name ~ ':rc='
+            ~ (item.rc | default('unavailable') | string)] }}
+  loop: "{{ vps_baseline_docker_containerd_active_use_queries_result.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.name }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_installed
+    - >-
+      item.rc | default(1) != 0
+      or item.stdout_lines | default([]) | length < 1
+      or item.stderr | default('') | trim | length > 0
+
+- name: Normalize detected active containerd use
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containerd_active_use_records: >-
+      {{ (vps_baseline_docker_containerd_active_use_records
+          + ((item.stdout_lines | default([]))[1:]
+             | map('trim') | reject('equalto', '')
+             | map('regex_replace', '^(.*)$',
+                   item.item.0 ~ ':' ~ item.item.1.name ~ ':\\1') | list))
+         | unique | sort }}
+  loop: "{{ vps_baseline_docker_containerd_active_use_queries_result.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}:{{ item.item.1.name }}"
+  when:
+    - vps_baseline_docker_bundled_runtime_installed
+    - item.rc | default(1) == 0
+    - item.stdout_lines | default([]) | length >= 1
+
+- name: Require no detected unrelated containerd use
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_containerd_query_errors | length == 0
+      - >-
+        vps_baseline_docker_containerd_namespaces
+        | difference(vps_baseline_docker_reported_containerd_namespaces)
+        | length == 0
+      - vps_baseline_docker_containerd_active_use_records | length == 0
+    fail_msg: >-
+      blocked-for-review: containerd inspection detected unrelated or active
+      use, or could not safely exclude it. Existing namespaces=
+      {{ vps_baseline_docker_containerd_namespaces }},
+      Docker-reported namespaces=
+      {{ vps_baseline_docker_reported_containerd_namespaces }}, query errors=
+      {{ vps_baseline_docker_containerd_query_errors }}, active use=
+      {{ vps_baseline_docker_containerd_active_use_records }}. No cleanup will run.
+  when: vps_baseline_docker_bundled_runtime_installed
+  changed_when: false
+
+- name: Record no detected unrelated containerd use
+  ansible.builtin.set_fact:
+    vps_baseline_docker_containerd_no_unrelated_use_detected: true
+  when: vps_baseline_docker_bundled_runtime_installed
+
+- name: Inspect the bundled containerd data path for explicit review
+  ansible.builtin.stat:
+    path: "{{ vps_baseline_docker_containerd_data_path }}"
+    follow: false
+  register: vps_baseline_docker_containerd_data_stat
+  when: vps_baseline_docker_bundled_runtime_installed
+  changed_when: false
+
+- name: Build the exact set of Docker paths requiring approval
+  ansible.builtin.set_fact:
+    vps_baseline_docker_paths_requiring_approval: >-
+      {{ (vps_baseline_docker_configuration_paths_found
+          + vps_baseline_docker_data_paths_found
+          + vps_baseline_docker_rootless_paths_found
+          + ([vps_baseline_docker_containerd_data_path]
+             if (vps_baseline_docker_bundled_runtime_installed
+                 and vps_baseline_docker_containerd_no_unrelated_use_detected
+                 and vps_baseline_docker_containerd_data_stat.stat.exists)
+             else [])) | unique | sort }}
+
+- name: Require exact approval of all unexpected Docker state
+  ansible.builtin.assert:
+    that:
+      - >-
+        (vps_baseline_docker_approved_state.containers | unique | sort)
+        == vps_baseline_docker_containers
+      - >-
+        (vps_baseline_docker_approved_state.images | unique | sort)
+        == vps_baseline_docker_images
+      - >-
+        (vps_baseline_docker_approved_state.volumes | unique | sort)
+        == vps_baseline_docker_volumes
+      - >-
+        (vps_baseline_docker_approved_state.custom_networks | unique | sort)
+        == vps_baseline_docker_custom_networks
+      - >-
+        (vps_baseline_docker_approved_state.build_cache | unique | sort)
+        == vps_baseline_docker_build_cache
+      - >-
+        (vps_baseline_docker_approved_state.swarm_objects | unique | sort)
+        == vps_baseline_docker_swarm_objects
+      - >-
+        (vps_baseline_docker_approved_state.plugins | unique | sort)
+        == vps_baseline_docker_plugins
+      - >-
+        (vps_baseline_docker_approved_state.paths | unique | sort)
+        == vps_baseline_docker_paths_requiring_approval
+      - >-
+        (vps_baseline_docker_approved_state.group_members | unique | sort)
+        == vps_baseline_docker_group_members
+    fail_msg: >-
+      blocked-for-review: current Docker state does not exactly match the
+      declarative approval manifest. containers={{ vps_baseline_docker_containers }},
+      images={{ vps_baseline_docker_images }}, volumes={{ vps_baseline_docker_volumes }},
+      custom_networks={{ vps_baseline_docker_custom_networks }},
+      build_cache={{ vps_baseline_docker_build_cache }},
+      swarm_objects={{ vps_baseline_docker_swarm_objects }},
+      plugins={{ vps_baseline_docker_plugins }},
+      paths={{ vps_baseline_docker_paths_requiring_approval }},
+      group_members={{ vps_baseline_docker_group_members }},
+      containerd_namespaces={{ vps_baseline_docker_containerd_namespaces }},
+      containerd_active_use=
+      {{ vps_baseline_docker_containerd_active_use_records }}.
+      Record only reviewed exact identifiers and paths; no cleanup has run.
+  when: vps_baseline_docker_bearing_state
+  changed_when: false
+
+- name: Build the exact Docker package purge request
+  ansible.builtin.set_fact:
+    vps_baseline_docker_purge_packages: >-
+      {{ (vps_baseline_docker_installed_packages
+          + ([vps_baseline_docker_bundled_runtime_package]
+             if (vps_baseline_docker_bundled_runtime_installed
+                 and vps_baseline_docker_containerd_no_unrelated_use_detected)
+             else []))
+         | unique | sort }}
+
+- name: Simulate the exact Docker package purge transaction
+  ansible.builtin.command:
+    argv: >-
+      {{ ['apt-get', '--simulate', '--no-install-recommends',
+          '-o', 'APT::Get::AutomaticRemove=false', 'purge']
+         + vps_baseline_docker_purge_packages }}
+  register: vps_baseline_docker_apt_simulation
+  when: vps_baseline_docker_purge_packages | length > 0
+  check_mode: false
+  changed_when: false
+
+- name: Normalize the simulated APT removal set
+  ansible.builtin.set_fact:
+    vps_baseline_docker_simulated_removals: >-
+      {{ vps_baseline_docker_apt_simulation.stdout_lines
+         | select('match', '^(Purg|Remv) ')
+         | map('split')
+         | map(attribute=1)
+         | unique
+         | sort }}
+  when: vps_baseline_docker_purge_packages | length > 0
+
+- name: Require an exact Docker-only APT removal transaction
+  ansible.builtin.assert:
+    that:
+      - >-
+        vps_baseline_docker_simulated_removals
+        == vps_baseline_docker_purge_packages
+      - >-
+        vps_baseline_docker_installed_shared_runtime_packages
+        | intersect(vps_baseline_docker_purge_packages) | length == 0
+    fail_msg: >-
+      blocked-for-review: APT simulation did not exactly match the Docker-only
+      purge request. requested={{ vps_baseline_docker_purge_packages }},
+      simulated={{ vps_baseline_docker_simulated_removals }}, protected_shared=
+      {{ vps_baseline_docker_installed_shared_runtime_packages }}. No cleanup will run.
+  changed_when: false

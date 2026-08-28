@@ -1,0 +1,54 @@
+---
+- name: Verify managed VPS connectivity and compatibility
+  hosts: managed_vps
+  gather_facts: true
+  remote_user: root
+  become: false
+
+  tasks:
+    - name: Resolve managed hostname from the workstation
+      ansible.builtin.getent:
+        database: hosts
+        key: "{{ ansible_host }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Verify the existing SSH transport
+      ansible.builtin.ping:
+      changed_when: false
+
+    - name: Gather installed APT package facts
+      ansible.builtin.package_facts:
+        manager: apt
+      changed_when: false
+
+    - name: Verify the supported target and administrative access
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'romero'
+          - ansible_host == 'romero.lolma.us'
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '26.04'
+          - ansible_facts.python.version.major == 3
+          - ansible_facts.python.version.minor == 14
+          - ansible_facts.user_uid == 0
+          - "'python3-apt' in ansible_facts.packages"
+        fail_msg: >-
+          The target must be romero.lolma.us running Ubuntu 26.04 with
+          Python 3.14, effective UID 0, and pre-installed python3-apt.
+      changed_when: false
+
+    - name: Resolve an external hostname from the managed VPS
+      ansible.builtin.getent:
+        database: hosts
+        key: archive.ubuntu.com
+      changed_when: false
+
+    - name: Verify outbound HTTPS from the managed VPS
+      ansible.builtin.uri:
+        url: https://archive.ubuntu.com/ubuntu/
+        method: HEAD
+        status_code: 200
+        return_content: false
+      changed_when: false

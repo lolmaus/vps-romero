@@ -1,0 +1,96 @@
+---
+- name: Regather package facts after Docker cleanup
+  ansible.builtin.package_facts:
+    manager: apt
+  when: not ansible_check_mode
+  changed_when: false
+
+- name: Regather service facts after Docker cleanup
+  ansible.builtin.service_facts:
+  when: not ansible_check_mode
+  changed_when: false
+
+- name: Inspect all paths that must be absent after Docker cleanup
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: >-
+    {{ (vps_baseline_docker_source_candidates
+        + vps_baseline_docker_key_candidates
+        + vps_baseline_docker_configuration_paths
+        + vps_baseline_docker_data_paths
+        + vps_baseline_docker_runtime_paths
+        + vps_baseline_docker_socket_paths
+        + vps_baseline_docker_rootless_path_candidates
+        + vps_baseline_docker_apt_cache_paths
+        + ([vps_baseline_docker_containerd_data_path]
+           if vps_baseline_docker_bundled_runtime_package
+              in vps_baseline_docker_purge_packages else []))
+       | unique | sort }}
+  register: vps_baseline_docker_post_cleanup_path_stats
+  when: not ansible_check_mode
+  changed_when: false
+
+- name: Verify Docker package, service, and path absence
+  ansible.builtin.assert:
+    that:
+      - >-
+        vps_baseline_docker_purge_packages
+        | intersect(ansible_facts.packages.keys() | list) | length == 0
+      - >-
+        vps_baseline_docker_system_services
+        | intersect(ansible_facts.services.keys() | list) | length == 0
+      - >-
+        vps_baseline_docker_post_cleanup_path_stats.results
+        | selectattr('stat.exists') | list | length == 0
+    fail_msg: >-
+      Docker-specific packages, services, sources, keys, configuration,
+      runtime state, or data remain after cleanup.
+  when: not ansible_check_mode
+  changed_when: false
+
+- name: Verify the Docker group is absent after cleanup
+  ansible.builtin.getent:
+    database: group
+    key: docker
+    fail_key: false
+  register: vps_baseline_docker_post_cleanup_group
+  when: not ansible_check_mode
+  changed_when: false
+
+- name: Assert the Docker group is absent
+  ansible.builtin.assert:
+    that:
+      - vps_baseline_docker_post_cleanup_group.ansible_facts.getent_group.docker is none
+    fail_msg: The Docker group remains after cleanup.
+  when: not ansible_check_mode
+  changed_when: false
+
+- name: Reset the SSH control connection
+  ansible.builtin.meta: reset_connection
+
+- name: Verify a new SSH connection
+  ansible.builtin.ping:
+  changed_when: false
+
+- name: Resolve managed hostname from the workstation after baseline work
+  ansible.builtin.getent:
+    database: hosts
+    key: "{{ ansible_host }}"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+
+- name: Resolve an external hostname from the managed VPS after baseline work
+  ansible.builtin.getent:
+    database: hosts
+    key: archive.ubuntu.com
+  changed_when: false
+
+- name: Verify outbound HTTPS from the managed VPS after baseline work
+  ansible.builtin.uri:
+    url: https://archive.ubuntu.com/ubuntu/
+    method: HEAD
+    status_code: 200
+    return_content: false
+  changed_when: false
