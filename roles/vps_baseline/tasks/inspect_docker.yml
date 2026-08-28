@@ -40,6 +40,7 @@
     vps_baseline_docker_containerd_query_errors: []
     vps_baseline_docker_containerd_active_use_records: []
     vps_baseline_docker_containerd_no_unrelated_use_detected: false
+    vps_baseline_docker_simulated_removals: []
 
 - name: Record present Docker-specific system services
   ansible.builtin.set_fact:
@@ -885,6 +886,7 @@
       containerd_active_use=
       {{ vps_baseline_docker_containerd_active_use_records }}.
       Record only reviewed exact identifiers and paths; no cleanup has run.
+  when: vps_baseline_docker_bearing_state
   changed_when: false
 
 - name: Build the exact Docker package purge request
@@ -917,6 +919,7 @@
          | map(attribute=1)
          | unique
          | sort }}
+  when: vps_baseline_docker_purge_packages | length > 0
 
 - name: Require an exact Docker-only APT removal transaction
   ansible.builtin.assert:

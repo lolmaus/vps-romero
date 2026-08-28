@@ -124,8 +124,8 @@ description: "Implementation tasks for the managed VPS baseline"
 
 **OPERATOR GATE**: T034–T035 MUST NOT be executed by `$speckit-implement` or any implementation run unless the operator gives separate explicit deployment authorization at that time. Their presence in this file records production acceptance work; it does not grant deployment authority.
 
-- [ ] T034 [US3] OPERATOR ONLY — After separate explicit deployment authorization, run the first normal application and post-application SSH/DNS/outbound/Docker-absence checks exactly as documented in `specs/001-manage-vps-baseline/quickstart.md`
-- [ ] T035 [US3] OPERATOR ONLY — Immediately after T034, run the documented second application and require `changed=0`; if it reports any change, stop production acceptance without modifying or redeploying implementation under the existing authorization, return to repository implementation to correct the non-convergent behavior, rerun the applicable validation and final review tasks through T033, and obtain fresh explicit deployment authorization before another T034–T035 production acceptance sequence
+- [X] T034 [US3] OPERATOR ONLY — After separate explicit deployment authorization, run the first normal application and post-application SSH/DNS/outbound/Docker-absence checks exactly as documented in `specs/001-manage-vps-baseline/quickstart.md`
+- [X] T035 [US3] OPERATOR ONLY — Immediately after T034, run the documented second application and require `changed=0`; if it reports any change, stop production acceptance without modifying or redeploying implementation under the existing authorization, return to repository implementation to correct the non-convergent behavior, rerun the applicable validation and final review tasks through T033, and obtain fresh explicit deployment authorization before another T034–T035 production acceptance sequence
 
 **Production Acceptance Checkpoint**: The feature's production acceptance criteria are complete only after both operator-authorized tasks pass.
 

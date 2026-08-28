@@ -61,9 +61,7 @@
 - name: Assert the Docker group is absent
   ansible.builtin.assert:
     that:
-      - >-
-        'docker' not in
-        vps_baseline_docker_post_cleanup_group.ansible_facts.getent_group
+      - vps_baseline_docker_post_cleanup_group.ansible_facts.getent_group.docker is none
     fail_msg: The Docker group remains after cleanup.
   when: not ansible_check_mode
   changed_when: false
